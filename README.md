@@ -153,7 +153,21 @@ Las respuestas de error se homogeneizan mediante `@RestControllerAdvice`.
 
 ## Swagger y OpenAPI
 
-En cada servicio:
+**Una interfaz para los seis microservicios a través del API Gateway:**
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+En el desplegable «Select a definition», elegir Auth, Academic, Guidance, Notification, Analytics o Import.
+El Gateway expone las especificaciones JSON mediante `/openapi/auth`, `/openapi/academic`,
+`/openapi/guidance`, `/openapi/notification`, `/openapi/analytics` y `/openapi/import`.
+La documentación es pública; las operaciones de negocio bajo `/api/**` mantienen la validación JWT.
+Para utilizar «Try it out» en endpoints protegidos, aportar el token de autenticación.
+
+Además, cada microservicio conserva su Swagger individual:
+
+
 
 ```text
 http://localhost:<puerto>/swagger-ui/index.html
