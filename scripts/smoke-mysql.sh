@@ -196,4 +196,15 @@ docker run --rm --network host \
   --reporters cli,json \
   --reporter-json-export /etc/newman/artifacts/newman-gateway-report.json
 
-echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT completado."
+echo "[EP02] Comprobando solicitudes enviadas sin login previo en la colección Gateway..."
+# Start with empty Postman session. The collection pre-request must obtain its own JWT.
+for folder in "Auth · Gateway" "Academic · Gateway" "Guidance · Gateway" \
+              "Notification · Gateway" "Analytics · Gateway" "Import · Gateway"; do
+  echo "[EP02] Probando ejecución individual por carpeta: $folder"
+  docker run --rm --network host \
+    -v "$PWD:/etc/newman" \
+    postman/newman:alpine run /etc/newman/postman/EduBio360-EP02-Gateway.postman_collection.json \
+    --folder "$folder" --reporters cli
+done
+
+echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT + carpetas aisladas completado."

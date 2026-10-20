@@ -70,6 +70,14 @@
     {
       "key": "futureDate",
       "value": ""
+    },
+    {
+      "key": "accessTokenIssuedAt",
+      "value": ""
+    },
+    {
+      "key": "autoAuthUserId",
+      "value": ""
     }
   ],
   "item": [
@@ -188,6 +196,7 @@
                   "    const response = pm.response.json();",
                   "    pm.expect(response.token).to.be.a('string').and.not.empty;",
                   "    pm.collectionVariables.set('accessToken', response.token);",
+                  "    pm.collectionVariables.set('accessTokenIssuedAt', Date.now());",
                   "});"
                 ]
               }
@@ -1475,6 +1484,60 @@
           ]
         }
       ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Automatically authorize a protected request when it is sent individually in Postman.",
+          "// Public login/register and the explicit missing-token (401) test remain untouched.",
+          "const currentUrl = pm.request.url.toString();",
+          "const isPublicAuth = currentUrl.includes('/api/auth/login') || currentUrl.includes('/api/auth/register');",
+          "const skipAuth = pm.request.auth && pm.request.auth.type === 'noauth';",
+          "if (!isPublicAuth && !skipAuth) {",
+          "  const token = pm.collectionVariables.get('accessToken');",
+          "  const issuedAt = Number(pm.collectionVariables.get('accessTokenIssuedAt') || 0);",
+          "  const needsSession = !token || !issuedAt || Date.now() - issuedAt > 5 * 60 * 1000;",
+          "  if (needsSession) {",
+          "    const base = pm.collectionVariables.get('gatewayUrl');",
+          "    const password = pm.collectionVariables.get('gatewayPassword');",
+          "    if (!base || !password) throw new Error('Gateway URL or demo password is missing');",
+          "    const email = 'ep02-auto-' + Date.now() + '-' + Math.floor(Math.random() * 1000000) + '@example.test';",
+          "    const register = {",
+          "      url: base + '/api/auth/register',",
+          "      method: 'POST',",
+          "      header: {'Content-Type': 'application/json'},",
+          "      body: { mode: 'raw', raw: JSON.stringify({email: email, password: password}) }",
+          "    };",
+          "    pm.sendRequest(register, function (registrationError, registrationResponse) {",
+          "      if (registrationError || !registrationResponse || registrationResponse.code !== 201) {",
+          "        throw new Error('Automatic JWT registration failed: ' + (registrationError || (registrationResponse && registrationResponse.code)));",
+          "      }",
+          "      const registered = registrationResponse.json();",
+          "      pm.collectionVariables.set('autoAuthUserId', registered.id);",
+          "      const login = {",
+          "        url: base + '/api/auth/login',",
+          "        method: 'POST',",
+          "        header: {'Content-Type': 'application/json'},",
+          "        body: { mode: 'raw', raw: JSON.stringify({email: email, password: password}) }",
+          "      };",
+          "      pm.sendRequest(login, function (loginError, loginResponse) {",
+          "        if (loginError || !loginResponse || loginResponse.code !== 200) {",
+          "          throw new Error('Automatic JWT login failed: ' + (loginError || (loginResponse && loginResponse.code)));",
+          "        }",
+          "        const response = loginResponse.json();",
+          "        if (!response.token) throw new Error('Automatic JWT login returned no token');",
+          "        pm.collectionVariables.set('accessToken', response.token);",
+          "        pm.collectionVariables.set('accessTokenIssuedAt', Date.now());",
+          "      });",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
     }
   ]
 }
