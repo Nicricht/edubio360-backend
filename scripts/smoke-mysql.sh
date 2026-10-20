@@ -10,7 +10,10 @@ cleanup() {
 trap cleanup EXIT
 
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
-docker compose up -d --build   mysql rabbitmq discovery-server   auth-service academic-service guidance-service   notification-service analytics-service import-service
+docker compose up -d --build \
+  mysql rabbitmq discovery-server \
+  auth-service academic-service guidance-service \
+  notification-service analytics-service import-service api-gateway
 
 wait_for() {
   local name="$1"
@@ -28,16 +31,18 @@ wait_for() {
   return 1
 }
 
+wait_for "Discovery" "http://localhost:8761/actuator/health"
 wait_for "Auth" "http://localhost:8081/actuator/health"
 wait_for "Academic" "http://localhost:8082/actuator/health"
 wait_for "Guidance" "http://localhost:8083/actuator/health"
 wait_for "Notification" "http://localhost:8084/actuator/health"
 wait_for "Analytics" "http://localhost:8085/actuator/health"
 wait_for "Import" "http://localhost:8086/actuator/health"
+wait_for "Gateway" "http://localhost:8080/actuator/health"
 
 echo "[EP02] Verificando bases MySQL..."
 for db in authdb academicdb guidancedb notificationdb analyticsdb importdb; do
-  docker compose exec -T mysql mysql -uroot -proot -Nse     "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='${db}'"     | grep -qx "$db"
+  docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -Nse "$1"' _     "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='${db}'"     | grep -qx "$db"
   echo "[OK] $db"
 done
 
@@ -66,6 +71,29 @@ assert_status() {
     return 1
   fi
 }
+
+echo "[EP02] Verificando API Gateway, registro, JWT y rutas protegidas..."
+assert_status 401 "http://localhost:8080/api/ofertas"
+gateway_email="ep02-gateway-$(date +%s)@example.test"
+gateway_payload="$(printf '{"email":"%s","password":"sample-value-123"}' "$gateway_email")"
+gateway_status="000"
+for attempt in $(seq 1 30); do
+  gateway_status="$(curl -sS -o /tmp/ep02-gateway-register.json -w '%{http_code}' \
+    -X POST "http://localhost:8080/api/auth/register" \
+    -H "Content-Type: application/json" -d "$gateway_payload")" || gateway_status="000"
+  if [ "$gateway_status" = "201" ]; then break; fi
+  sleep 2
+done
+if [ "$gateway_status" != "201" ]; then
+  echo "[FAIL] Registro via Gateway: HTTP $gateway_status" >&2
+  cat /tmp/ep02-gateway-register.json >&2 || true
+  exit 1
+fi
+gateway_login="$(post_json "http://localhost:8080/api/auth/login" "$gateway_payload")"
+gateway_token="$(printf '%s' "$gateway_login" | jq -r '.token')"
+test -n "$gateway_token" && test "$gateway_token" != "null"
+assert_status 200 -H "Authorization: Bearer $gateway_token" "http://localhost:8080/api/ofertas"
+echo "[OK] Gateway autentica y enruta peticiones JWT"
 
 echo "[EP02] CRUD Auth..."
 auth_created="$(post_json "http://localhost:8081/api/usuarios"   '{"email":"ep02-ci@example.test","password":"sample-value-123","role":"STUDENT","active":true}')"
@@ -124,14 +152,14 @@ echo "[EP02] Verificando tablas JPA en MySQL..."
 for spec in   "authdb:users"   "academicdb:ofertas_academicas"   "guidancedb:solicitudes_orientacion"   "notificationdb:notificaciones"   "analyticsdb:metricas"   "importdb:importaciones"; do
   db="${spec%%:*}"
   table="${spec##*:}"
-  docker compose exec -T mysql mysql -uroot -proot -Nse     "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${db}' AND TABLE_NAME='${table}'"     | grep -qx "$table"
+  docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -Nse "$1"' _     "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${db}' AND TABLE_NAME='${table}'"     | grep -qx "$table"
   echo "[OK] $db.$table"
 done
 
 assert_status 204 -X DELETE "http://localhost:8082/api/ofertas/$academic_id"
 # A successful DELETE must be observable by a fresh GET and in MySQL.
 assert_status 404 "http://localhost:8082/api/ofertas/$academic_id"
-academic_remaining="$(docker compose exec -T mysql mysql -uroot -proot -Nse \
+academic_remaining="$(docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -Nse "$1"' _ \
   "SELECT COUNT(*) FROM academicdb.ofertas_academicas WHERE id=${academic_id}")"
 if [ "$academic_remaining" != "0" ]; then
   echo "[FAIL] Academic DELETE returned 204 but id=$academic_id still exists in MySQL" >&2

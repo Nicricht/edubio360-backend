@@ -50,7 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Smoke test MySQL + 6 microservicios
+      - name: Smoke test full Docker stack, MySQL credentials and Gateway JWT
+        env:
+          MYSQL_ROOT_PASSWORD: ci-nondefault-mysql-root-2026
         run: bash scripts/smoke-mysql.sh
 
       - name: Guardar logs Docker
