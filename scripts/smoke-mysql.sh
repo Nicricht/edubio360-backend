@@ -189,4 +189,11 @@ docker run --rm --network host \
   --reporters cli,json \
   --reporter-json-export /etc/newman/artifacts/newman-report.json
 
-echo "[SUCCESS] Smoke MySQL + Postman EP02 completado."
+echo "[EP02] Ejecutando colección independiente Postman por API Gateway con JWT..."
+docker run --rm --network host \
+  -v "$PWD:/etc/newman" \
+  postman/newman:alpine run /etc/newman/postman/EduBio360-EP02-Gateway.postman_collection.json \
+  --reporters cli,json \
+  --reporter-json-export /etc/newman/artifacts/newman-gateway-report.json
+
+echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT completado."
