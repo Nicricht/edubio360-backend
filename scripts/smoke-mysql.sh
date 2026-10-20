@@ -72,6 +72,20 @@ assert_status() {
   fi
 }
 
+echo "[EP02] Verificando Swagger centralizado por el API Gateway..."
+wait_for "Swagger UI Gateway" "http://localhost:8080/swagger-ui/index.html"
+wait_for "Swagger config Gateway" "http://localhost:8080/v3/api-docs/swagger-config"
+swagger_config="$(curl -fsS "http://localhost:8080/v3/api-docs/swagger-config")"
+printf '%s' "$swagger_config" | jq -e '.urls | length == 6' >/dev/null
+for service in auth academic guidance notification analytics import; do
+  wait_for "OpenAPI $service" "http://localhost:8080/openapi/$service" 45
+  curl -fsS "http://localhost:8080/openapi/$service" |
+    jq -e '.openapi and (.paths | type == "object" and length > 0)' >/dev/null
+  echo "[OK] Swagger OpenAPI $service"
+done
+assert_status 401 "http://localhost:8080/api/ofertas"
+echo "[OK] Swagger documentado sin JWT; rutas de negocio siguen protegidas"
+
 echo "[EP02] Verificando API Gateway, registro, JWT y rutas protegidas..."
 assert_status 401 "http://localhost:8080/api/ofertas"
 gateway_email="ep02-gateway-$(date +%s)@example.test"
