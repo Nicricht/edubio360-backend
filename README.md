@@ -216,6 +216,14 @@ las 42 de CRUD, autenticación JWT (401 sin token, registro, login, lectura prot
 eliminación del usuario temporal al finalizar.
 
 Importarla en Postman y ejecutar **Run collection** con los contenedores encendidos.
+También es posible pulsar **Send** en una petición CRUD aislada de cualquier servicio:
+si no hay JWT válido de la sesión reciente, el script de nivel colección
+registra una cuenta efímera de pruebas e inicia sesión automáticamente por
+`http://localhost:8080/api/auth/**` antes de enviar la petición.
+La primera petición «Ruta protegida sin JWT» mantiene el 401 intencional.
+Para obtener, actualizar o borrar registros, primero ejecutar la solicitud «Crear» de ese servicio
+para que se establezca su variable `{servicio}Id`.
+Las cuentas efímeras son de **pruebas locales**; no utilizar esta colección para producción.
 `gatewayUrl` apunta a `http://localhost:8080`; el token se obtiene automáticamente.
 La colección histórica `EduBio360-EP02.postman_collection.json` no se modifica y mantiene
 las pruebas independientes contra cada servicio. GitHub Actions ejecuta **ambas** colecciones
