@@ -142,10 +142,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
-                  "const data = pm.response.json();",
-                  "pm.test('Registro devuelve id', function () { pm.expect(data.id).to.be.a('number'); });",
-                  "pm.collectionVariables.set('bootstrapUserId', data.id);"
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Registro devuelve identificador', function () {",
+                  "    const user = pm.response.json();",
+                  "    pm.expect(user.id).to.be.a('number');",
+                  "    pm.collectionVariables.set('bootstrapUserId', user.id);",
+                  "});"
                 ]
               }
             }
@@ -181,10 +183,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
-                  "const data = pm.response.json();",
-                  "pm.test('JWT recibido', function () { pm.expect(data.token).to.be.a('string').and.not.empty; });",
-                  "pm.collectionVariables.set('accessToken', data.token);"
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Inicio de sesión entrega JWT', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('accessToken', response.token);",
+                  "});"
                 ]
               }
             }
