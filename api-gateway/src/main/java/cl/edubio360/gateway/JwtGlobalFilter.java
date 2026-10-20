@@ -61,7 +61,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
     private boolean isPublic(String path) {
         return path.equals("/api/auth/login")
                 || path.equals("/api/auth/register")
-                || path.startsWith("/actuator/");
+                || path.startsWith("/actuator/")
+                || path.startsWith("/openapi/");
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {

@@ -7,6 +7,43 @@ spring:
   cloud:
     gateway:
       routes:
+        # Centralized Swagger UI fetches all OpenAPI documents through this Gateway.
+        - id: openapi-auth
+          uri: lb://auth-service
+          predicates:
+            - Path=/openapi/auth
+          filters:
+            - SetPath=/v3/api-docs
+        - id: openapi-academic
+          uri: lb://academic-service
+          predicates:
+            - Path=/openapi/academic
+          filters:
+            - SetPath=/v3/api-docs
+        - id: openapi-guidance
+          uri: lb://guidance-service
+          predicates:
+            - Path=/openapi/guidance
+          filters:
+            - SetPath=/v3/api-docs
+        - id: openapi-notification
+          uri: lb://notification-service
+          predicates:
+            - Path=/openapi/notification
+          filters:
+            - SetPath=/v3/api-docs
+        - id: openapi-analytics
+          uri: lb://analytics-service
+          predicates:
+            - Path=/openapi/analytics
+          filters:
+            - SetPath=/v3/api-docs
+        - id: openapi-import
+          uri: lb://import-service
+          predicates:
+            - Path=/openapi/import
+          filters:
+            - SetPath=/v3/api-docs
         - id: auth-service-auth
           uri: lb://auth-service
           predicates:
@@ -39,6 +76,25 @@ spring:
           uri: lb://import-service
           predicates:
             - Path=/api/importaciones/**
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+    urls-primary-name: Academic Service
+    urls:
+      - name: Auth Service
+        url: /openapi/auth
+      - name: Academic Service
+        url: /openapi/academic
+      - name: Guidance Service
+        url: /openapi/guidance
+      - name: Notification Service
+        url: /openapi/notification
+      - name: Analytics Service
+        url: /openapi/analytics
+      - name: Import Service
+        url: /openapi/import
 
 security:
   jwt:
