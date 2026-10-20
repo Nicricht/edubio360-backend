@@ -78,8 +78,8 @@ gateway_email="ep02-gateway-$(date +%s)@example.test"
 gateway_payload="$(printf '{"email":"%s","password":"sample-value-123"}' "$gateway_email")"
 gateway_status="000"
 for attempt in $(seq 1 30); do
-  gateway_status="$(curl -sS -o /tmp/ep02-gateway-register.json -w '%{http_code}' \\
-    -X POST "http://localhost:8080/api/auth/register" \\
+  gateway_status="$(curl -sS -o /tmp/ep02-gateway-register.json -w '%{http_code}' \
+    -X POST "http://localhost:8080/api/auth/register" \
     -H "Content-Type: application/json" -d "$gateway_payload")" || gateway_status="000"
   if [ "$gateway_status" = "201" ]; then break; fi
   sleep 2
