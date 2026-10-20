@@ -209,6 +209,19 @@ Debe cubrir, por servicio:
 6. actualizar -> 200;
 7. eliminar -> 204.
 
+### Postman por API Gateway (nueva colección, sin sustituir la original)
+
+`postman/EduBio360-EP02-Gateway.postman_collection.json` contiene 47 solicitudes:
+las 42 de CRUD, autenticación JWT (401 sin token, registro, login, lectura protegida) y
+eliminación del usuario temporal al finalizar.
+
+Importarla en Postman y ejecutar **Run collection** con los contenedores encendidos.
+`gatewayUrl` apunta a `http://localhost:8080`; el token se obtiene automáticamente.
+La colección histórica `EduBio360-EP02.postman_collection.json` no se modifica y mantiene
+las pruebas independientes contra cada servicio. GitHub Actions ejecuta **ambas** colecciones
+con Newman durante su smoke test Docker. Los resultados se archivan en
+`artifacts/newman-report.json` y `artifacts/newman-gateway-report.json`.
+
 ## GitFlow
 
 - `main`: versión estable.
