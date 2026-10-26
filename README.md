@@ -63,6 +63,23 @@ Si falta `SNYK_TOKEN` en un evento confiable, el job falla de manera explícita.
 La existencia de los archivos por sí sola no prueba un escaneo satisfactorio:
 hay que revisar la ejecución real en Actions.
 
+**Remediación y estado verificado (26-10-2026):** la rama de entrega usa
+Spring Boot 4.0.9, Spring Cloud 2025.1.4, springdoc 3.1.1 y Resilience4j
+2.4.0. Se corrigió la desactivación global de CSRF y se añadieron
+versiones seguras explícitas para Guava, Apache HttpComponents 5,
+Bouncy Castle y RabbitMQ. En la
+[ejecución de CI correspondiente](https://github.com/Nicricht/edubio360-backend/actions/runs/40398656390),
+`verify` y **Snyk Code (SAST)** aprobaron. Snyk Open Source redujo sus
+hallazgos a una única vulnerabilidad distinta: **CVE-2026-92877**
+(`org.glassfish.jaxb:jaxb-core:4.0.9`, XXE; presente por dependencias
+transitivas). Según el
+[aviso oficial de Snyk](https://security.snyk.io/vuln/SNYK-JAVA-ORGGLASSFISHJAXB-20883142),
+el parche existe en el código fuente upstream, pero **a esta fecha no hay
+una versión publicada corregida**. El bloqueo de seguridad permanece
+activo; `image-build` y `deploy-smoke` quedan omitidos. No se creó
+ninguna excepción ni se redujo el umbral del análisis. Hay que reevaluar
+este CVE cuando se publique el parche y repetir la CI.
+
 ### 3. Ejecución local y pruebas (IE1, IE2, IE4, IE5)
 
 Requisitos: **Java 21, Maven, Docker Engine y Docker Compose v2**. Desde la raíz:
@@ -185,7 +202,7 @@ La implementación EP02 se construye sobre la arquitectura existente y se alinea
 ## Stack
 
 - Java 21
-- Spring Boot 3
+- Spring Boot 4
 - Maven
 - Spring Data JPA / Hibernate
 - MySQL 8
@@ -287,7 +304,7 @@ docker compose down -v
 Los ocho microservicios comparten una caché de dependencias Maven de BuildKit
 (`/root/.m2/repository`, con escritura bloqueada mientras otro módulo descarga).
 Esto reduce descargas simultáneas repetidas y el riesgo de saturar las conexiones
-a Maven Central. La compilación conserva Java 21 y Spring Boot 3.5.15.
+a Maven Central. La compilación conserva Java 21 y Spring Boot 4.0.9.
 El repositorio también ignora archivos locales `.env` y salidas `target`
 en el contexto de construcción Docker.
 
