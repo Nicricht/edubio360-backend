@@ -40,4 +40,10 @@ class AuthControllerTest {
         mvc.perform(post("/api/auth/register").contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void rechazaPostFueraDeApiSinTokenCsrf() throws Exception {
+        mvc.perform(post("/internal/maintenance"))
+                .andExpect(status().isForbidden());
+    }
 }
