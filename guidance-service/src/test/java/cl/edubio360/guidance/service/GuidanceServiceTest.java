@@ -6,8 +6,8 @@ import cl.edubio360.guidance.dto.ActualizarSolicitudRequest;
 import cl.edubio360.guidance.dto.CrearSolicitudRequest;
 import cl.edubio360.guidance.model.SolicitudOrientacion;
 import cl.edubio360.guidance.repository.SolicitudRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +29,7 @@ class GuidanceServiceTest {
     @Mock SolicitudRepository repository;
     @Mock AcademicValidationService academicValidation;
     @Mock RabbitTemplate rabbitTemplate;
-    ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    ObjectMapper objectMapper = new ObjectMapper();
     GuidanceService service;
     SolicitudOrientacion solicitud;
 
@@ -166,7 +166,7 @@ class GuidanceServiceTest {
         when(mockSolicitud.getEstado()).thenReturn("CONFIRMADA");
 
         when(mapper.writeValueAsString(any()))
-                .thenThrow(new JsonProcessingException("error de prueba") {});
+                .thenThrow(new JacksonException("error de prueba") {});
 
         IllegalStateException error = assertThrows(
                 IllegalStateException.class,

@@ -6,8 +6,8 @@ import cl.edubio360.guidance.dto.ActualizarSolicitudRequest;
 import cl.edubio360.guidance.dto.CrearSolicitudRequest;
 import cl.edubio360.guidance.model.SolicitudOrientacion;
 import cl.edubio360.guidance.repository.SolicitudRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -127,7 +127,7 @@ public class GuidanceService {
                     "orientadorEmail", solicitud.getOrientadorEmail(),
                     "estado", solicitud.getEstado()));
             rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, message);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("No fue posible construir el evento de confirmación", ex);
         }
     }
