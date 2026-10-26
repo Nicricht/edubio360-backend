@@ -1,4 +1,7 @@
-name: EP02 Verify Java 21
+name: EduBio360 DevSecOps (DOY0101 EP2)
+
+permissions:
+  contents: read
 
 on:
   push:
@@ -6,6 +9,7 @@ on:
       - main
       - develop
       - "feature/**"
+      - "feat/**"
   pull_request:
     branches:
       - main
@@ -23,8 +27,17 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Maven clean verify
         run: mvn -B clean verify
+
+      - name: Verify EP2 delivery configuration contracts
+        run: |
+          python -m pip install 'PyYAML==6.0.3'
+          python -B -m unittest discover -s tests/ci -v
 
       - name: Validar Docker Compose
         run: docker compose config --quiet
@@ -44,21 +57,115 @@ jobs:
             **/target/cucumber/**
             **/target/surefire-reports/**
 
-  mysql-smoke:
-    runs-on: ubuntu-latest
+  security:
+    name: Snyk dependencies and code
     needs: verify
+    # Fork and Dependabot pull requests cannot use repository Actions secrets.
+    # Their verify job remains available; no downstream deployment is allowed.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Smoke test full Docker stack, MySQL credentials and Gateway JWT
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check Snyk authentication
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "SNYK_TOKEN is missing: add it under Actions repository secrets." >&2
+            exit 1
+          fi
+
+      - name: Install Snyk CLI
+        run: npm install --global snyk
+
+      - name: Snyk Open Source - Maven reactor
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          snyk test --maven-aggregate-project --severity-threshold=high \
+            --json-file-output=artifacts/snyk-dependencies.json
+
+      - name: Snyk Code - SAST
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk code test --severity-threshold=high \
+            --json-file-output=artifacts/snyk-code.json
+
+      - name: Save Snyk evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ep02-snyk-evidence
+          if-no-files-found: warn
+          path: artifacts/snyk-*.json
+
+  image-build:
+    name: Build non-root image tagged by commit
+    runs-on: ubuntu-latest
+    needs: [verify, security]
+    if: github.event_name == 'push'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker multi-stage build - auth-service
+        run: |
+          docker build --file Dockerfile.service --build-arg MODULE=auth-service \
+            --build-arg HEALTH_PORT=8081 \
+            --tag "edubio360/auth-service:${IMAGE_TAG}" .
+          runtime_user="$(docker image inspect --format '{{.Config.User}}' "edubio360/auth-service:${IMAGE_TAG}")"
+          test -n "$runtime_user" && test "$runtime_user" != "root" && test "$runtime_user" != "0"
+          mkdir -p artifacts
+          printf 'commit=%s\nimage=%s\nuser=%s\n' \
+            "${GITHUB_SHA}" "edubio360/auth-service:${IMAGE_TAG}" "$runtime_user" \
+            > artifacts/image-build-trace.txt
+          docker image inspect --format 'size_bytes={{.Size}}' \
+            "edubio360/auth-service:${IMAGE_TAG}" >> artifacts/image-build-trace.txt
+
+      - name: Save build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ep2-image-build-${{ github.sha }}
+          if-no-files-found: warn
+          path: artifacts/image-build-trace.txt
+
+  deploy-smoke:
+    name: Deploy and smoke test in simulated cloud runner
+    runs-on: ubuntu-latest
+    needs: [verify, security, image-build]
+    if: github.event_name == 'push'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose deploy, health verification and end-to-end smoke tests
         env:
           MYSQL_ROOT_PASSWORD: ci-nondefault-mysql-root-2026
         run: bash scripts/smoke-mysql.sh
 
-      - name: Guardar logs Docker
+      - name: Save simulated deployment logs and trace
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ep02-mysql-smoke
+          name: ep2-deploy-${{ github.sha }}
           if-no-files-found: warn
           path: artifacts/**

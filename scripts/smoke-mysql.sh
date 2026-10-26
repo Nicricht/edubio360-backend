@@ -3,9 +3,14 @@ set -euo pipefail
 
 mkdir -p artifacts
 
+# Every simulated deployment records the exact source revision and tagged images.
+# This file survives the teardown and is uploaded by the workflow even on failure.
+printf 'commit=%s\nimage_tag=%s\n' "${GITHUB_SHA:-local}" "${IMAGE_TAG:-local}" \
+  > artifacts/deployment-trace.txt
+
 cleanup() {
-  docker compose logs --no-color > artifacts/docker-compose.log 2>&1 || true
-  docker compose down -v >/dev/null 2>&1 || true
+  docker compose --profile scale logs --no-color > artifacts/docker-compose.log 2>&1 || true
+  docker compose --profile scale down -v >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -14,6 +19,9 @@ docker compose up -d --build \
   mysql rabbitmq discovery-server \
   auth-service academic-service guidance-service \
   notification-service analytics-service import-service api-gateway
+
+docker compose images >> artifacts/deployment-trace.txt
+docker compose ps >> artifacts/deployment-trace.txt
 
 wait_for() {
   local name="$1"
@@ -206,5 +214,12 @@ for folder in "Auth · Gateway" "Academic · Gateway" "Guidance · Gateway" \
     postman/newman:alpine run /etc/newman/postman/EduBio360-EP02-Gateway.postman_collection.json \
     --folder "$folder" --reporters cli
 done
+
+echo "[EP2] Escalando Analytics a dos instancias sin conflicto de puertos..."
+docker compose --profile scale up -d --no-build --wait --wait-timeout 240 analytics-replica
+docker compose --profile scale ps analytics-service analytics-replica >> artifacts/deployment-trace.txt
+docker compose exec -T analytics-service curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null
+docker compose --profile scale exec -T analytics-replica curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null
+echo "[OK] Ambas instancias Analytics saludables y configuradas para Eureka"
 
 echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT + carpetas aisladas completado."

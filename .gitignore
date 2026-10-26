@@ -7,4 +7,6 @@ target/
 .DS_Store
 .env
 *.log
+__pycache__/
+*.py[cod]
 
