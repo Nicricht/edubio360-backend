@@ -90,6 +90,7 @@ jobs:
           fi
 
       - name: Install Snyk CLI
+        id: install_snyk
         run: npm install --global snyk
 
       - name: Snyk Open Source - Maven reactor
@@ -101,6 +102,9 @@ jobs:
             --json-file-output=artifacts/snyk-dependencies.json
 
       - name: Snyk Code - SAST
+        # Preserve SAST evidence even if SCA found vulnerabilities. The job
+        # still fails and blocks deploy if either scanner reports a failure.
+        if: ${{ !cancelled() && steps.install_snyk.outcome == 'success' }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |

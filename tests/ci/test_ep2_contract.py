@@ -45,6 +45,9 @@ class SecurityPipelineContract(unittest.TestCase):
         self.assertIn("SNYK_TOKEN", commands)
         self.assertNotIn("|| true", commands)
         self.assertTrue(all(step.get("continue-on-error") is not True for step in steps))
+        code_scan = next(step for step in steps if step.get("name") == "Snyk Code - SAST")
+        self.assertIn("!cancelled()", code_scan.get("if", ""))
+        self.assertIn("steps.install_snyk.outcome", code_scan.get("if", ""))
 
 
 class ContainerContract(unittest.TestCase):

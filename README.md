@@ -56,6 +56,9 @@ flowchart TD
 Maven. `snyk code test --severity-threshold=high` analiza código fuente (SAST).
 Un hallazgo de gravedad **alta o crítica** o un error del escáner hace fallar
 el job `security` y evita tanto la construcción aprobada como el despliegue.
+Si Snyk Open Source encuentra vulnerabilidades, el análisis Snyk Code aún se
+ejecuta para registrar evidencia SAST de forma independiente; el resultado
+global continúa bloqueado.
 Si falta `SNYK_TOKEN` en un evento confiable, el job falla de manera explícita.
 La existencia de los archivos por sí sola no prueba un escaneo satisfactorio:
 hay que revisar la ejecución real en Actions.
