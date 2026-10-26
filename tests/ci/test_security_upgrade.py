@@ -33,6 +33,27 @@ class SpringSecurityUpgradeContract(unittest.TestCase):
         self.assertIn("resilience4j-spring-boot4", ids)
         self.assertNotIn("resilience4j-spring-boot3", ids)
 
+    def test_reactor_pins_remediated_versions_for_vulnerable_transitives(self):
+        pom = ET.parse(ROOT / "pom.xml").getroot()
+        overrides = {}
+        for dependency in pom.findall("m:dependencyManagement/m:dependencies/m:dependency", NS):
+            group = dependency.findtext("m:groupId", namespaces=NS)
+            artifact = dependency.findtext("m:artifactId", namespaces=NS)
+            version = dependency.findtext("m:version", namespaces=NS)
+            overrides[(group, artifact)] = version
+
+        expected = {
+            ("com.google.guava", "guava"): "33.7.2-jre",
+            ("org.apache.httpcomponents.client5", "httpclient5"): "5.6.4",
+            ("org.apache.httpcomponents.core5", "httpcore5"): "5.4.3",
+            ("org.apache.httpcomponents.core5", "httpcore5-h2"): "5.4.3",
+            ("org.bouncycastle", "bcprov-jdk18on"): "1.86",
+            ("com.rabbitmq", "amqp-client"): "5.34.0",
+        }
+        for dependency, fixed_version in expected.items():
+            with self.subTest(dependency=dependency):
+                self.assertEqual(overrides.get(dependency), fixed_version)
+
 
 if __name__ == "__main__":
     unittest.main()
