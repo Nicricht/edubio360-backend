@@ -99,6 +99,7 @@ jobs:
         run: |
           mkdir -p artifacts
           snyk test --maven-aggregate-project --severity-threshold=high \
+            --policy-path=.snyk \
             --json-file-output=artifacts/snyk-dependencies.json
 
       - name: Snyk Code - SAST
@@ -143,13 +144,31 @@ jobs:
           docker image inspect --format 'size_bytes={{.Size}}' \
             "edubio360/auth-service:${IMAGE_TAG}" >> artifacts/image-build-trace.txt
 
+      - name: Verify runtime JAXP lockdown for temporary JAXB CVE mitigation
+        run: |
+          mkdir -p artifacts
+          docker run --rm --entrypoint java "edubio360/auth-service:${IMAGE_TAG}" \
+            -XshowSettings:properties -version > artifacts/jaxp-settings.txt 2>&1
+          for property_name in \
+            javax.xml.accessExternalDTD \
+            javax.xml.accessExternalSchema \
+            javax.xml.accessExternalStylesheet; do
+            if ! grep -Eq "^[[:space:]]*${property_name}[[:space:]]*=[[:space:]]*$" artifacts/jaxp-settings.txt; then
+              echo "JAXP property missing or not empty: ${property_name}" >&2
+              exit 1
+            fi
+          done
+          printf 'jaxp_external_xml=denied\n' >> artifacts/image-build-trace.txt
+
       - name: Save build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ep2-image-build-${{ github.sha }}
           if-no-files-found: warn
-          path: artifacts/image-build-trace.txt
+          path: |
+            artifacts/image-build-trace.txt
+            artifacts/jaxp-settings.txt
 
   deploy-smoke:
     name: Deploy and smoke test in simulated cloud runner

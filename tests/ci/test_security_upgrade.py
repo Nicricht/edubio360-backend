@@ -1,8 +1,10 @@
 """Guard the supported framework train selected to remediate Snyk alerts."""
 
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import unittest
 import xml.etree.ElementTree as ET
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +55,56 @@ class SpringSecurityUpgradeContract(unittest.TestCase):
         for dependency, fixed_version in expected.items():
             with self.subTest(dependency=dependency):
                 self.assertEqual(overrides.get(dependency), fixed_version)
+
+
+class TemporaryJaxbExceptionContract(unittest.TestCase):
+    def test_only_authorized_cve_is_temporarily_excepted_and_expires(self):
+        policy_path = ROOT / ".snyk"
+        self.assertTrue(policy_path.is_file(), "La política temporal de Snyk debe existir")
+        policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+        self.assertEqual(policy["version"], "v1.25.0")
+        self.assertEqual(list(policy["ignore"]), ["SNYK-JAVA-ORGGLASSFISHJAXB-20883142"])
+        exceptions = policy["ignore"]["SNYK-JAVA-ORGGLASSFISHJAXB-20883142"]
+        self.assertEqual(len(exceptions), 1)
+        self.assertEqual(list(exceptions[0]), ["*"])
+        details = exceptions[0]["*"]
+        self.assertIn("CVE-2026-92877", details["reason"])
+        self.assertIn("JAXP", details["reason"])
+        self.assertEqual(details["expires"], "2026-11-09T23:59:59.000Z")
+        expires = datetime.fromisoformat(details["expires"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        self.assertGreater(expires, now, "Excepción vencida: CI debe bloquear el despliegue")
+        self.assertLessEqual(expires - now, timedelta(days=15))
+
+    def test_security_gate_still_scans_everything_else(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+        security = workflow["jobs"]["security"]
+        scan = next(s for s in security["steps"] if s.get("name") == "Snyk Open Source - Maven reactor")
+        self.assertIn("--policy-path=.snyk", scan["run"])
+        self.assertIn("--severity-threshold=high", scan["run"])
+        self.assertNotIn("--ignore-policy", scan["run"])
+        self.assertNotEqual(scan.get("continue-on-error"), True)
+
+    def test_runtime_refuses_external_xml_resources_by_default(self):
+        runtime = (ROOT / "Dockerfile.service").read_text(encoding="utf-8").split(
+            "FROM eclipse-temurin:21-jre", 1
+        )[1]
+        self.assertIn("ENV JAVA_TOOL_OPTIONS=", runtime)
+        for property_name in (
+            "javax.xml.accessExternalDTD",
+            "javax.xml.accessExternalSchema",
+            "javax.xml.accessExternalStylesheet",
+        ):
+            with self.subTest(property_name=property_name):
+                self.assertIn(f"-D{property_name}=", runtime)
+
+    def test_image_build_checks_effective_jvm_hardening(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+        build_steps = workflow["jobs"]["image-build"]["steps"]
+        run = "\n".join(step.get("run", "") for step in build_steps)
+        self.assertIn("--entrypoint java", run)
+        self.assertIn("-XshowSettings:properties", run)
+        self.assertIn("jaxp-settings.txt", run)
 
 
 if __name__ == "__main__":

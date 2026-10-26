@@ -60,3 +60,24 @@
 - [ ] Inspect vulnerability counts, JARs, Docker image build and full-stack smoke logs.
 - [ ] Document actual results and remaining restrictions; never record a green result without evidence.
 - [ ] Commit and update the existing draft pull request, leaving `main` unchanged.
+
+### Task 4: Compensating control for the unpatched JAXB CVE
+
+**Files:** `.snyk`, `Dockerfile.service`, `.github/workflows/ci.yml`,
+`tests/ci/test_security_upgrade.py`, `README.md`.
+
+**Interfaces:** Security job still gates `image-build` and `deploy-smoke`.
+The runtime image provides secure JAXP system properties to every service.
+
+- [ ] Test that the Snyk policy permits exactly CVE-2026-92877 and expires
+  on `2026-11-09T23:59:59.000Z` (including a fail-closed current-date check).
+- [ ] Observe the policy test fail before `.snyk` exists.
+- [ ] Add the single exception and preserve the `--severity-threshold=high`
+  gate for all remaining Open Source and Code findings.
+- [ ] Test runtime JAXP external access restrictions; observe failure
+  before Dockerfile mitigation.
+- [ ] Set Java system properties to deny external DTD, schema and
+  stylesheet protocols, and verify settings during image build.
+- [ ] Document the residual risk, expiry, owner action and CI evidence.
+- [ ] Re-run security, Docker image build, full-stack smoke and all
+  contract tests; report any unresolved failure honestly.

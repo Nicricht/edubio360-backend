@@ -29,6 +29,27 @@ despliegue de prueba terminen correctamente.
 3. Ignorar vulnerabilidades o convertir seguridad en paso no bloqueante:
    descartada porque rompería explícitamente IE3.
 
+## Decisión de excepción acotada (autorizada por el estudiante, 26-10-2026)
+
+La versión publicada de JAXB conserva la única CVE alta
+`SNYK-JAVA-ORGGLASSFISHJAXB-20883142` (CVE-2026-92877) y no existe
+todavía versión corregida en Maven Central. Se autoriza **solo esa CVE**,
+hasta `2026-11-09T23:59:59.000Z`, siempre que:
+
+- `.snyk` contenga una sola regla, con razón y fecha verificadas en CI;
+- Docker configure JAXP para rechazar acceso externo a DTD, schemas y
+  stylesheets, sin suprimir ninguna otra vulnerabilidad;
+- Snyk Open Source continúe fallando con hallazgos altos/críticos distintos
+  de esa CVE, y Snyk Code siga siendo bloqueante;
+- README nombre la vulnerabilidad, el riesgo residual, la fecha de
+  expiración y el procedimiento de eliminar la excepción al publicar el
+  parche upstream;
+- la expiración haga fallar el pipeline aunque se ignore por error desde
+  la herramienta.
+
+Esta decisión complementa la tercera estrategia descartada: **no** se
+autoriza desactivar Snyk, reducir umbrales ni crear excepciones generales.
+
 ## Alcance y restricciones
 
 - No fusionar a `main` sin revisión; mantener una rama/PR separado.
