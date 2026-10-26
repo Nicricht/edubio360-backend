@@ -104,6 +104,20 @@ class ContainerContract(unittest.TestCase):
 
 
 class DeliveryPipelineContract(unittest.TestCase):
+    def test_gateway_routes_use_spring_cloud_gateway_5_webflux_namespace(self):
+        """All API and Swagger routes must bind to Gateway 5 at runtime."""
+        config = read_yaml("api-gateway/src/main/resources/application.yml")
+        gateway = config["spring"]["cloud"]["gateway"]
+        self.assertNotIn("routes", gateway, "Gateway 5 ignores the legacy routes prefix")
+        routes = gateway["server"]["webflux"]["routes"]
+        self.assertEqual(len(routes), 14)
+        self.assertEqual(len({route["id"] for route in routes}), len(routes))
+        for service in ("auth", "academic", "guidance", "notification", "analytics", "import"):
+            with self.subTest(service=service):
+                route = next(route for route in routes if route["id"] == f"openapi-{service}")
+                self.assertIn(f"Path=/openapi/{service}", route["predicates"])
+                self.assertIn("SetPath=/v3/api-docs", route["filters"])
+
     def test_image_build_and_deployment_are_gated_on_security(self):
         workflow = read_yaml(".github/workflows/ci.yml")
         jobs = workflow["jobs"]

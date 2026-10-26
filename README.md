@@ -55,7 +55,8 @@ flowchart TD
 --severity-threshold=high` evalúa vulnerabilidades de dependencias del reactor
 Maven. `snyk code test --severity-threshold=high` analiza código fuente (SAST).
 Un hallazgo de gravedad **alta o crítica** o un error del escáner hace fallar
-el job `security` y evita tanto la construcción aprobada como el despliegue.
+el job `security` y evita tanto la construcción aprobada como el despliegue,
+salvo la **única excepción temporal y explícita** descrita más abajo.
 Si Snyk Open Source encuentra vulnerabilidades, el análisis Snyk Code aún se
 ejecuta para registrar evidencia SAST de forma independiente; el resultado
 global continúa bloqueado.
@@ -75,10 +76,33 @@ hallazgos a una única vulnerabilidad distinta: **CVE-2026-92877**
 transitivas). Según el
 [aviso oficial de Snyk](https://security.snyk.io/vuln/SNYK-JAVA-ORGGLASSFISHJAXB-20883142),
 el parche existe en el código fuente upstream, pero **a esta fecha no hay
-una versión publicada corregida**. El bloqueo de seguridad permanece
-activo; `image-build` y `deploy-smoke` quedan omitidos. No se creó
-ninguna excepción ni se redujo el umbral del análisis. Hay que reevaluar
-este CVE cuando se publique el parche y repetir la CI.
+una versión publicada corregida**.
+
+**Excepción de riesgo aprobada por el equipo (26-10-2026):** el archivo
+[`.snyk`](.snyk) permite exclusivamente
+`SNYK-JAVA-ORGGLASSFISHJAXB-20883142` hasta
+**2026-11-09 23:59:59 UTC**. El job `verify` valida que sea la única
+excepción, que no esté vencida y que expire en un plazo breve; una
+excepción adicional o vencida rompe el pipeline. El análisis Snyk sigue
+bloqueando cualquier otra vulnerabilidad alta/crítica y el SAST no utiliza
+excepciones.
+
+**Control compensatorio:** `Dockerfile.service` fija las propiedades
+JAXP `javax.xml.accessExternalDTD`,
+`javax.xml.accessExternalSchema` y
+`javax.xml.accessExternalStylesheet` con listas de protocolos vacías.
+Java no debe resolver entidades, DTD, esquemas ni stylesheets externos.
+El job `image-build` verifica que esas propiedades sean efectivas
+dentro de la imagen Java. Esta medida reduce la exposición a XXE, pero
+**no sustituye el parche ni elimina la CVE de la dependencia**: queda un
+riesgo residual aceptado temporalmente.
+
+**Caducidad y cierre:** antes del 9 de noviembre de 2026 el equipo debe
+revisar si JAXB ya publicó una versión corregida. En cuanto exista,
+actualizar la versión transitiva de JAXB, **eliminar la regla de
+`.snyk`** y ejecutar de nuevo todas las etapas de CI. Si no existe
+parche al vencimiento, el pipeline fallará y hará falta una nueva
+decisión explícita; está prohibido extender la excepción sin revisión.
 
 ### 3. Ejecución local y pruebas (IE1, IE2, IE4, IE5)
 
