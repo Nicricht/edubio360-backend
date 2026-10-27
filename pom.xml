@@ -22,7 +22,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <resilience4j.version>2.4.0</resilience4j.version>
         <springdoc.version>3.1.1</springdoc.version>
-        <cucumber.version>7.23.0</cucumber.version>
+        <cucumber.version>8.0.4</cucumber.version>
     </properties>
 
     <modules>
