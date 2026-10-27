@@ -16,7 +16,7 @@ RUN --mount=type=cache,id=edubio360-maven-repository,target=/root/.m2/repository
     mvn -B -ntp -U -pl "${MODULE}" -am clean package -DskipTests \
     -Daether.transport.http.retryHandler.count=6
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:24-jre
 ARG MODULE
 ARG HEALTH_PORT=8080
 ENV HEALTH_PORT=${HEALTH_PORT}
