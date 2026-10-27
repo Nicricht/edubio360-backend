@@ -19,8 +19,6 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Los endpoints JSON /api/** usan JWT enviado por Authorization,
-        // no sesiones/cookies del navegador. Mantener CSRF en otras rutas.
         http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());

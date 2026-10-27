@@ -9,7 +9,6 @@ spring:
       server:
         webflux:
           routes:
-            # Centralized Swagger UI fetches all OpenAPI documents through this Gateway.
             - id: openapi-auth
               uri: lb://auth-service
               predicates:

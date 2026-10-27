@@ -3,8 +3,6 @@ set -euo pipefail
 
 mkdir -p artifacts
 
-# Every simulated deployment records the exact source revision and tagged images.
-# This file survives the teardown and is uploaded by the workflow even on failure.
 printf 'commit=%s\nimage_tag=%s\n' "${GITHUB_SHA:-local}" "${IMAGE_TAG:-local}" \
   > artifacts/deployment-trace.txt
 
@@ -179,7 +177,6 @@ for spec in   "authdb:users"   "academicdb:ofertas_academicas"   "guidancedb:sol
 done
 
 assert_status 204 -X DELETE "http://localhost:8082/api/ofertas/$academic_id"
-# A successful DELETE must be observable by a fresh GET and in MySQL.
 assert_status 404 "http://localhost:8082/api/ofertas/$academic_id"
 academic_remaining="$(docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -Nse "$1"' _ \
   "SELECT COUNT(*) FROM academicdb.ofertas_academicas WHERE id=${academic_id}")"
@@ -205,7 +202,6 @@ docker run --rm --network host \
   --reporter-json-export /etc/newman/artifacts/newman-gateway-report.json
 
 echo "[EP02] Comprobando solicitudes enviadas sin login previo en la colección Gateway..."
-# Start with empty Postman session. The collection pre-request must obtain its own JWT.
 for folder in "Auth · Gateway" "Academic · Gateway" "Guidance · Gateway" \
               "Notification · Gateway" "Analytics · Gateway" "Import · Gateway"; do
   echo "[EP02] Probando ejecución individual por carpeta: $folder"

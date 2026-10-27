@@ -1,4 +1,3 @@
-# Shared resource budget for each Java microservice, including the gateway and Eureka.
 x-java-resources: &java-resources
   limits:
     cpus: "1.0"
@@ -255,8 +254,6 @@ services:
     deploy:
       resources: *java-resources
 
-  # Optional second instance of the SAME Eureka-registered Spring application.
-  # No host port is bound, so Analytics can run twice without port collisions.
   analytics-replica:
     profiles: [scale]
     image: edubio360/analytics-service:${IMAGE_TAG:-local}

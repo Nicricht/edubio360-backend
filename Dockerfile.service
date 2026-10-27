@@ -12,8 +12,6 @@ COPY notification-service notification-service
 COPY analytics-service analytics-service
 COPY import-service import-service
 
-# Eight services share downloaded dependencies; lock prevents concurrent Maven writes.
-# -U rechecks artifacts after transient download/DNS failures.
 RUN --mount=type=cache,id=edubio360-maven-repository,target=/root/.m2/repository,sharing=locked \
     mvn -B -ntp -U -pl "${MODULE}" -am clean package -DskipTests \
     -Daether.transport.http.retryHandler.count=6
@@ -22,11 +20,8 @@ FROM eclipse-temurin:21-jre
 ARG MODULE
 ARG HEALTH_PORT=8080
 ENV HEALTH_PORT=${HEALTH_PORT}
-# Mitigación temporal de CVE-2026-92877 en JAXB: JAXP no debe resolver
-# DTD, esquemas ni hojas de estilo externos. Mantener hasta release reparado.
 ENV JAVA_TOOL_OPTIONS="-Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet="
 WORKDIR /app
-# The runtime uses a lightweight HTTP probe instead of a separate JVM.
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build --chown=10001:10001 /workspace/${MODULE}/target/*.jar app.jar

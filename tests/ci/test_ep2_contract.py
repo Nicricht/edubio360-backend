@@ -1,5 +1,3 @@
-"""Behavioral contracts for the DOY0101 CI and deployment configuration."""
-
 from pathlib import Path
 import unittest
 import xml.etree.ElementTree as ET
@@ -105,7 +103,6 @@ class ContainerContract(unittest.TestCase):
 
 class DeliveryPipelineContract(unittest.TestCase):
     def test_gateway_routes_use_spring_cloud_gateway_5_webflux_namespace(self):
-        """All API and Swagger routes must bind to Gateway 5 at runtime."""
         config = read_yaml("api-gateway/src/main/resources/application.yml")
         gateway = config["spring"]["cloud"]["gateway"]
         self.assertNotIn("routes", gateway, "Gateway 5 ignores the legacy routes prefix")

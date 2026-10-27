@@ -60,8 +60,6 @@ jobs:
   security:
     name: Snyk dependencies and code
     needs: verify
-    # Fork and Dependabot pull requests cannot use repository Actions secrets.
-    # Their verify job remains available; no downstream deployment is allowed.
     if: >-
       github.actor != 'dependabot[bot]' &&
       (github.event_name != 'pull_request' ||
@@ -103,8 +101,6 @@ jobs:
             --json-file-output=artifacts/snyk-dependencies.json
 
       - name: Snyk Code - SAST
-        # Preserve SAST evidence even if SCA found vulnerabilities. The job
-        # still fails and blocks deploy if either scanner reports a failure.
         if: ${{ !cancelled() && steps.install_snyk.outcome == 'success' }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

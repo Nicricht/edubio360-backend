@@ -38,8 +38,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Versiones corregidas de vulnerabilidades transitivas detectadas por Snyk.
-                 Mantenerlas hasta que Spring Boot/Cloud las gestione en sus BOM. -->
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>

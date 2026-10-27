@@ -1,5 +1,3 @@
-"""Guard the supported framework train selected to remediate Snyk alerts."""
-
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import unittest
