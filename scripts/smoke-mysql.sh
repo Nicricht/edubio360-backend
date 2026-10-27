@@ -3,9 +3,12 @@ set -euo pipefail
 
 mkdir -p artifacts
 
+printf 'commit=%s\nimage_tag=%s\n' "${GITHUB_SHA:-local}" "${IMAGE_TAG:-local}" \
+  > artifacts/deployment-trace.txt
+
 cleanup() {
-  docker compose logs --no-color > artifacts/docker-compose.log 2>&1 || true
-  docker compose down -v >/dev/null 2>&1 || true
+  docker compose --profile scale logs --no-color > artifacts/docker-compose.log 2>&1 || true
+  docker compose --profile scale down -v >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -14,6 +17,9 @@ docker compose up -d --build \
   mysql rabbitmq discovery-server \
   auth-service academic-service guidance-service \
   notification-service analytics-service import-service api-gateway
+
+docker compose images >> artifacts/deployment-trace.txt
+docker compose ps >> artifacts/deployment-trace.txt
 
 wait_for() {
   local name="$1"
@@ -171,7 +177,6 @@ for spec in   "authdb:users"   "academicdb:ofertas_academicas"   "guidancedb:sol
 done
 
 assert_status 204 -X DELETE "http://localhost:8082/api/ofertas/$academic_id"
-# A successful DELETE must be observable by a fresh GET and in MySQL.
 assert_status 404 "http://localhost:8082/api/ofertas/$academic_id"
 academic_remaining="$(docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -Nse "$1"' _ \
   "SELECT COUNT(*) FROM academicdb.ofertas_academicas WHERE id=${academic_id}")"
@@ -197,7 +202,6 @@ docker run --rm --network host \
   --reporter-json-export /etc/newman/artifacts/newman-gateway-report.json
 
 echo "[EP02] Comprobando solicitudes enviadas sin login previo en la colección Gateway..."
-# Start with empty Postman session. The collection pre-request must obtain its own JWT.
 for folder in "Auth · Gateway" "Academic · Gateway" "Guidance · Gateway" \
               "Notification · Gateway" "Analytics · Gateway" "Import · Gateway"; do
   echo "[EP02] Probando ejecución individual por carpeta: $folder"
@@ -206,5 +210,12 @@ for folder in "Auth · Gateway" "Academic · Gateway" "Guidance · Gateway" \
     postman/newman:alpine run /etc/newman/postman/EduBio360-EP02-Gateway.postman_collection.json \
     --folder "$folder" --reporters cli
 done
+
+echo "[EP2] Escalando Analytics a dos instancias sin conflicto de puertos..."
+docker compose --profile scale up -d --no-build --wait --wait-timeout 240 analytics-replica
+docker compose --profile scale ps analytics-service analytics-replica >> artifacts/deployment-trace.txt
+docker compose exec -T analytics-service curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null
+docker compose --profile scale exec -T analytics-replica curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null
+echo "[OK] Ambas instancias Analytics saludables y configuradas para Eureka"
 
 echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT + carpetas aisladas completado."

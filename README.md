@@ -1,5 +1,249 @@
 # EduBío 360 — Backend de Microservicios
 
+## EP2 DOY0101 — Ingeniería DevOps
+
+Esta sección documenta **la entrega de Ingeniería DevOps (DOY0101)**, separada
+de la EP02 de JVY0101 descrita más abajo. Se utiliza el mismo sistema Java 21:
+seis microservicios de negocio, API Gateway, Eureka, MySQL y RabbitMQ.
+La meta es acreditar los cinco indicadores (IE1–IE5) con evidencia ejecutable.
+
+### 1. Pipeline y condiciones de calidad
+
+El archivo [`.github/workflows/ci.yml`](.github/workflows/ci.yml) define este flujo:
+
+```mermaid
+flowchart TD
+    V["verify: Maven, JUnit y JaCoCo"] --> S["security: Snyk dependencias y código"]
+    S --> B["image-build: Docker y etiqueta SHA"]
+    B --> D["deploy-smoke: Compose y pruebas de extremo a extremo"]
+```
+
+- En `push` a `main`, `develop`, `feature/**` o `feat/**` se ejecuta la cadena
+  completa. En Pull Requests internos dirigidos a `main` o `develop` se ejecutan
+  las verificaciones de Maven y Snyk, pero no el despliegue.
+- Los jobs `image-build` y `deploy-smoke` **dependen de los resultados exitosos**
+  de `verify` y `security`. Un error de compilación, prueba, Snyk o Docker
+  bloquea la etapa siguiente; no se utiliza `continue-on-error`.
+- Por protección de secretos, los PR de forks y Dependabot no ejecutan el job
+  autenticado de Snyk y nunca hacen despliegue. Su comprobación básica es
+  `verify`; una persona debe revisar esas propuestas antes de integrarlas.
+- El despliegue se realiza en un **entorno simulado** de GitHub Actions:
+  Docker Compose levanta la pila en un runner temporal y **no persiste** ni
+  genera un enlace de producción cuando finaliza el job.
+
+### 2. Preparación en GitHub (acciones del equipo)
+
+1. Subir esta rama mediante un Pull Request y mantener el enlace del repositorio
+   accesible para el docente.
+2. Crear una cuenta de Snyk y obtener un token autorizado. En GitHub abrir
+   **Settings → Secrets and variables → Actions → New repository secret**,
+   agregar el nombre `SNYK_TOKEN` y pegar el valor **sin incorporarlo al código**.
+3. En **Settings → Security → Code security**, habilitar Dependabot alerts y
+   Dependabot security updates si están disponibles. El archivo
+   [`.github/dependabot.yml`](.github/dependabot.yml) agenda revisión semanal
+   de Maven (raíz y ocho módulos), GitHub Actions y Docker.
+4. Ejecutar el workflow en una rama `feat/**` con un `push`, esperar el estado
+   verde en la pestaña **Actions** y descargar los artefactos para la defensa.
+   Ante un fallo de Snyk, corregir la vulnerabilidad o documentar la decisión
+   antes de volver a ejecutar; no se debe desactivar el bloqueo.
+5. Proteger `main` con Pull Request y comprobaciones obligatorias apropiadas
+   para el flujo del equipo. Los permisos generales de Actions pueden
+   mantenerse en **solo lectura**: este pipeline no publica paquetes ni
+   escribe cambios en el repositorio.
+
+**Política de seguridad (IE3):** `snyk test --maven-aggregate-project
+--severity-threshold=high` evalúa vulnerabilidades de dependencias del reactor
+Maven. `snyk code test --severity-threshold=high` analiza código fuente (SAST).
+Un hallazgo de gravedad **alta o crítica** o un error del escáner hace fallar
+el job `security` y evita tanto la construcción aprobada como el despliegue,
+salvo la **única excepción temporal y explícita** descrita más abajo.
+Si Snyk Open Source encuentra vulnerabilidades, el análisis Snyk Code aún se
+ejecuta para registrar evidencia SAST de forma independiente; el resultado
+global continúa bloqueado.
+Si falta `SNYK_TOKEN` en un evento confiable, el job falla de manera explícita.
+La existencia de los archivos por sí sola no prueba un escaneo satisfactorio:
+hay que revisar la ejecución real en Actions.
+
+**Remediación y estado verificado (26-10-2026):** la rama de entrega usa
+Spring Boot 4.0.9, Spring Cloud 2025.1.4, springdoc 3.1.1 y Resilience4j
+2.4.0. Se corrigió la desactivación global de CSRF y se añadieron
+versiones seguras explícitas para Guava, Apache HttpComponents 5,
+Bouncy Castle y RabbitMQ. En la
+[ejecución final aprobada](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478),
+`verify`, **Snyk Open Source** y **Snyk Code (SAST)** aprobaron con la
+política de excepción temporal descrita a continuación. La remediación redujo
+los hallazgos a una única vulnerabilidad distinta: **CVE-2026-92877**
+(`org.glassfish.jaxb:jaxb-core:4.0.9`, XXE; presente por dependencias
+transitivas). Según el
+[aviso oficial de Snyk](https://security.snyk.io/vuln/SNYK-JAVA-ORGGLASSFISHJAXB-20883142),
+el parche existe en el código fuente upstream, pero **a esta fecha no hay
+una versión publicada corregida**.
+
+**Excepción de riesgo aprobada por el equipo (26-10-2026):** el archivo
+[`.snyk`](.snyk) permite exclusivamente
+`SNYK-JAVA-ORGGLASSFISHJAXB-20883142` hasta
+**2026-11-09 23:59:59 UTC**. El job `verify` valida que sea la única
+excepción, que no esté vencida y que expire en un plazo breve; una
+excepción adicional o vencida rompe el pipeline. El análisis Snyk sigue
+bloqueando cualquier otra vulnerabilidad alta/crítica y el SAST no utiliza
+excepciones.
+
+**Control compensatorio:** `Dockerfile.service` fija las propiedades
+JAXP `javax.xml.accessExternalDTD`,
+`javax.xml.accessExternalSchema` y
+`javax.xml.accessExternalStylesheet` con listas de protocolos vacías.
+Java no debe resolver entidades, DTD, esquemas ni stylesheets externos.
+El job `image-build` verifica que esas propiedades sean efectivas
+dentro de la imagen Java. Esta medida reduce la exposición a XXE, pero
+**no sustituye el parche ni elimina la CVE de la dependencia**: queda un
+riesgo residual aceptado temporalmente.
+
+**Caducidad y cierre:** antes del 9 de noviembre de 2026 el equipo debe
+revisar si JAXB ya publicó una versión corregida. En cuanto exista,
+actualizar la versión transitiva de JAXB, **eliminar la regla de
+`.snyk`** y ejecutar de nuevo todas las etapas de CI. Si no existe
+parche al vencimiento, el pipeline fallará y hará falta una nueva
+decisión explícita; está prohibido extender la excepción sin revisión.
+
+### 3. Ejecución local y pruebas (IE1, IE2, IE4, IE5)
+
+Requisitos: **Java 21, Maven, Docker Engine y Docker Compose v2**. Desde la raíz:
+
+```bash
+mvn -B clean verify
+docker compose config --quiet
+IMAGE_TAG=local docker compose up -d --build
+docker compose ps
+curl --fail http://localhost:8080/actuator/health
+```
+
+Verificar también `http://localhost:8080/swagger-ui/index.html` y las rutas
+de negocio. Para ejecutar la prueba de despliegue completa en una máquina de
+pruebas (incluye Newman y **elimina los contenedores y el volumen MySQL
+temporal al salir**):
+
+```bash
+bash scripts/smoke-mysql.sh
+```
+
+Para detener una ejecución manual sin borrar datos persistidos:
+
+```bash
+docker compose down
+```
+
+**IE1 — imagen optimizada:** [`Dockerfile.service`](Dockerfile.service) usa
+dos etapas: Maven 3.9 + JDK 21 para construir cada módulo y un JRE 21 para
+ejecutarlo. Conserva la caché de dependencias de BuildKit, omite archivos
+innecesarios mediante [`.dockerignore`](.dockerignore), instala una sonda
+HTTP, ejecuta el JAR con UID/GID `10001` (sin root) y tiene `HEALTHCHECK`
+específico para el puerto de cada servicio. El job `image-build` construye
+`auth-service` y comprueba el usuario final de la imagen; Compose construye
+los ocho servicios para desplegarlos.
+
+**IE2 — pruebas automáticas:** `mvn clean verify` ejecuta los tests de JUnit,
+Mockito, MockMvc y Cucumber configurados en Maven. JaCoCo genera reportes en
+`<modulo>/target/site/jacoco/`. Además, se verifican los contratos de
+configuración DevOps con `python3 -B -m unittest discover -s tests/ci -v`.
+El job `verify` se marca como fallido si cualquier prueba falla; los reportes
+se conservan como artefactos, aunque el job no termine exitosamente. La
+cobertura real debe leerse de los reportes, no presumirse un porcentaje.
+
+**IE4 — despliegue automático y trazabilidad:** el commit de GitHub
+(`github.sha`) se asigna a `IMAGE_TAG`; cada imagen de Compose recibe una
+etiqueta `edubio360/<servicio>:<SHA>`. El job `deploy-smoke` ejecuta
+`scripts/smoke-mysql.sh`, espera los endpoints `/actuator/health`, valida
+MySQL, las API, Swagger, JWT y las colecciones Postman. El archivo
+`artifacts/deployment-trace.txt` registra SHA, etiquetas e imágenes;
+`artifacts/docker-compose.log` conserva logs, incluso en caso de fallo.
+El entorno simulado se desmonta al concluir el job.
+
+**IE5 — orquestación y escalabilidad:** [`docker-compose.yml`](docker-compose.yml)
+define los ocho contenedores Java y los servicios de MySQL/RabbitMQ, con
+`depends_on: service_healthy`, reinicio `unless-stopped`, healthchecks y
+presupuestos de CPU/memoria. Cada servicio Java reserva 0,25 CPU y 256 MB,
+con límite de 1 CPU y 1 GiB; MySQL tiene límite de 1 CPU/1 GiB y RabbitMQ
+de 0,5 CPU/512 MiB. Estos límites contienen el consumo.
+
+El perfil opcional `scale` incorpora `analytics-replica`: una **segunda instancia
+de la misma aplicación** Analytics, con la misma configuración MySQL/Eureka,
+pero sin publicar el puerto 8085 en el host para evitar colisiones. Después de
+levantar la composición normal, se prueba así:
+
+```bash
+docker compose --profile scale up -d --no-build --wait analytics-replica
+docker compose --profile scale ps analytics-service analytics-replica
+```
+
+El smoke test de CI ejecuta también esa segunda instancia y verifica la salud
+HTTP de ambas. Esta es una demostración limitada de escalamiento horizontal:
+**no equivale a autoscaling**, balanceo externo ni alta disponibilidad. Los
+puertos fijos de los demás servicios siguen siendo adecuados para los tests
+locales; una arquitectura productiva de múltiples réplicas debería incluir
+un balanceador/ingress y puertos internos.
+
+### 4. Evidencia que hay que presentar por indicador
+
+| Indicador | Archivos de implementación | Evidencia en GitHub Actions |
+|---|---|---|
+| IE1 — contenedores | `Dockerfile.service`, `.dockerignore` | Job `image-build`, `ep2-image-build-<SHA>` con UID e imagen |
+| IE2 — pruebas | `pom.xml`, tests de cada módulo, `tests/ci/` | Job `verify`, `ep02-evidencias` con Surefire y JaCoCo |
+| IE3 — seguridad | `.github/dependabot.yml`, job `security` | Job Snyk, `ep02-snyk-evidence`; capturas de Dependabot activo |
+| IE4 — despliegue | `deploy-smoke`, `scripts/smoke-mysql.sh` | `ep2-deploy-<SHA>`, `deployment-trace.txt`, logs y Newman |
+| IE5 — orquestación | `docker-compose.yml`, `Dockerfile.service` | `docker compose ps`, segunda instancia Analytics, healthchecks y límites |
+
+**Evidencia real verificada — 27 de octubre de 2026.** El commit
+`54985be320eafde4ba79dea8daebace35ac7274d` completó las cuatro etapas
+de la [ejecución DOY0101 EP2](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478)
+con resultado **Success**:
+
+| Indicador | Prueba observada | Resultado y enlace directo |
+|---|---|---|
+| IE1 | Construcción Docker, usuario sin root, etiqueta del commit y restricciones de Java | [Build non-root image: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012261661) |
+| IE2 | Maven/JUnit/Cucumber/JaCoCo y 18 contratos de configuración | [Verify: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122011346937) |
+| IE3 | Análisis Snyk de dependencias y código con bloqueo ante fallos; una excepción JAXB documentada y con caducidad | [Security: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122011914486) |
+| IE4 | Despliegue con Compose, salud, MySQL, API Gateway, JWT, Swagger y colecciones Newman | [Deploy-smoke: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012534446) |
+| IE5 | MySQL, RabbitMQ, microservicios saludables y segunda instancia Analytics verificada | [Deploy-smoke: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012534446) |
+
+En esa ejecución se comprobaron seis documentos OpenAPI a través del Gateway,
+las operaciones CRUD y las colecciones de Postman/Newman sin fallos.
+La sección **Artifacts** de la ejecución contiene los paquetes descargables:
+`ep02-evidencias` (pruebas y cobertura), `ep02-snyk-evidence` (seguridad),
+`ep2-image-build-54985be320eafde4ba79dea8daebace35ac7274d` (Docker) y
+`ep2-deploy-54985be320eafde4ba79dea8daebace35ac7274d` (logs,
+trazabilidad y Newman). Los artefactos tienen la retención configurada por
+GitHub y deben descargarse si se requiere respaldo permanente.
+
+**Pendiente del equipo antes de enviar:** comprobar que Dependabot alerts
+y security updates están habilitados en GitHub; revisar el Pull Request
+[#25](https://github.com/Nicricht/edubio360-backend/pull/25) y la rama que
+se entregará; escribir las reflexiones individuales sin IA; enviar el enlace
+del repositorio por AVA y correo al docente.
+
+La etiqueta `<SHA>` corresponde a los 40 caracteres del commit que aparece
+en la ejecución de Actions. Los JSON Snyk y resultados Newman se guardan en
+`artifacts/` durante CI y se descargan desde los artefactos de esa ejecución.
+Se debe adjuntar evidencia real de una ejecución exitosa, no capturas
+simuladas. Las imágenes **no se publican en un registro**: se construyen y
+usan dentro del runner temporal de despliegue.
+
+### 5. Uso de IA y apartados personales
+
+**Declaración de uso de IA (borrador factual que el equipo debe comprobar):**
+se utilizó ChatGPT como asistencia para revisar la pauta de DOY0101,
+proponer y desarrollar archivos de Docker, Compose y GitHub Actions,
+preparar pruebas de configuración y estructurar documentación. El equipo
+debe revisar, comprender y validar las decisiones y registrar cualquier otra
+herramienta utilizada. La IA no sustituye la ejecución del pipeline ni sus
+evidencias.
+
+**Pendiente — reflexiones individuales y justificaciones personales:** cada
+integrante debe redactar **sin uso de IA** sus propias conclusiones,
+aprendizajes, aportes y las justificaciones técnicas personales que exija la
+rúbrica. No se incluyen textos inventados en este repositorio.
+
+---
+
 
 > **EP02 / defensa oral:** antes de modificar o explicar el proyecto, leer [docs/PAUTA_EVALUACION_EP02_JVY0101.md](docs/PAUTA_EVALUACION_EP02_JVY0101.md). Ese archivo es el documento maestro de la evaluación: contiene la rúbrica, el estado certificado, la evidencia por IE, la arquitectura que debe explicarse y una guía para que otro chat pueda enseñar y preparar la defensa técnica.
 
@@ -11,7 +255,7 @@ La implementación EP02 se construye sobre la arquitectura existente y se alinea
 ## Stack
 
 - Java 21
-- Spring Boot 3
+- Spring Boot 4
 - Maven
 - Spring Data JPA / Hibernate
 - MySQL 8
@@ -113,7 +357,7 @@ docker compose down -v
 Los ocho microservicios comparten una caché de dependencias Maven de BuildKit
 (`/root/.m2/repository`, con escritura bloqueada mientras otro módulo descarga).
 Esto reduce descargas simultáneas repetidas y el riesgo de saturar las conexiones
-a Maven Central. La compilación conserva Java 21 y Spring Boot 3.5.15.
+a Maven Central. La compilación conserva Java 21 y Spring Boot 4.0.9.
 El repositorio también ignora archivos locales `.env` y salidas `target`
 en el contexto de construcción Docker.
 

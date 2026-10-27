@@ -55,7 +55,6 @@ public class AcademicService {
     @Transactional
     public void eliminar(Long id) {
         OfertaAcademica oferta = get(id);
-        // Keep both sides of the JPA association in sync before removal.
         oferta.getSede().getOfertas().removeIf(asociada -> asociada == oferta || id.equals(asociada.getId()));
         ofertas.delete(oferta);
     }

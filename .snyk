@@ -1,0 +1,8 @@
+# Riesgo aceptado temporalmente para CVE sin release reparado (26-10-2026).
+# La prueba de CI exige una sola regla y una fecha de expiración inmutable.
+version: v1.25.0
+ignore:
+  SNYK-JAVA-ORGGLASSFISHJAXB-20883142:
+    - '*':
+        reason: "CVE-2026-92877 sin versión corregida publicada; mitigación JAXP bloquea XML externo en Docker. Excepción temporal autorizada; revisar release JAXB."
+        expires: "2026-11-09T23:59:59.000Z"

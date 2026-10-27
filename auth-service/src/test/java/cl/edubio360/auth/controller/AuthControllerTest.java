@@ -7,7 +7,7 @@ import cl.edubio360.auth.dto.UserResponse;
 import cl.edubio360.auth.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,5 +39,11 @@ class AuthControllerTest {
 
         mvc.perform(post("/api/auth/register").contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rechazaPostFueraDeApiSinTokenCsrf() throws Exception {
+        mvc.perform(post("/internal/maintenance"))
+                .andExpect(status().isForbidden());
     }
 }

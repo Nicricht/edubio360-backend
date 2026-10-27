@@ -6,76 +6,77 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      routes:
-        # Centralized Swagger UI fetches all OpenAPI documents through this Gateway.
-        - id: openapi-auth
-          uri: lb://auth-service
-          predicates:
-            - Path=/openapi/auth
-          filters:
-            - SetPath=/v3/api-docs
-        - id: openapi-academic
-          uri: lb://academic-service
-          predicates:
-            - Path=/openapi/academic
-          filters:
-            - SetPath=/v3/api-docs
-        - id: openapi-guidance
-          uri: lb://guidance-service
-          predicates:
-            - Path=/openapi/guidance
-          filters:
-            - SetPath=/v3/api-docs
-        - id: openapi-notification
-          uri: lb://notification-service
-          predicates:
-            - Path=/openapi/notification
-          filters:
-            - SetPath=/v3/api-docs
-        - id: openapi-analytics
-          uri: lb://analytics-service
-          predicates:
-            - Path=/openapi/analytics
-          filters:
-            - SetPath=/v3/api-docs
-        - id: openapi-import
-          uri: lb://import-service
-          predicates:
-            - Path=/openapi/import
-          filters:
-            - SetPath=/v3/api-docs
-        - id: auth-service-auth
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/auth/**
-        - id: auth-service-usuarios
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/usuarios/**
-        - id: academic-service-ofertas
-          uri: lb://academic-service
-          predicates:
-            - Path=/api/ofertas/**
-        - id: academic-service-sedes
-          uri: lb://academic-service
-          predicates:
-            - Path=/api/sedes/**
-        - id: guidance-service
-          uri: lb://guidance-service
-          predicates:
-            - Path=/api/solicitudes/**
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/api/notificaciones/**
-        - id: analytics-service
-          uri: lb://analytics-service
-          predicates:
-            - Path=/api/analytics/**,/api/metricas/**
-        - id: import-service
-          uri: lb://import-service
-          predicates:
-            - Path=/api/importaciones/**
+      server:
+        webflux:
+          routes:
+            - id: openapi-auth
+              uri: lb://auth-service
+              predicates:
+                - Path=/openapi/auth
+              filters:
+                - SetPath=/v3/api-docs
+            - id: openapi-academic
+              uri: lb://academic-service
+              predicates:
+                - Path=/openapi/academic
+              filters:
+                - SetPath=/v3/api-docs
+            - id: openapi-guidance
+              uri: lb://guidance-service
+              predicates:
+                - Path=/openapi/guidance
+              filters:
+                - SetPath=/v3/api-docs
+            - id: openapi-notification
+              uri: lb://notification-service
+              predicates:
+                - Path=/openapi/notification
+              filters:
+                - SetPath=/v3/api-docs
+            - id: openapi-analytics
+              uri: lb://analytics-service
+              predicates:
+                - Path=/openapi/analytics
+              filters:
+                - SetPath=/v3/api-docs
+            - id: openapi-import
+              uri: lb://import-service
+              predicates:
+                - Path=/openapi/import
+              filters:
+                - SetPath=/v3/api-docs
+            - id: auth-service-auth
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
+            - id: auth-service-usuarios
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/usuarios/**
+            - id: academic-service-ofertas
+              uri: lb://academic-service
+              predicates:
+                - Path=/api/ofertas/**
+            - id: academic-service-sedes
+              uri: lb://academic-service
+              predicates:
+                - Path=/api/sedes/**
+            - id: guidance-service
+              uri: lb://guidance-service
+              predicates:
+                - Path=/api/solicitudes/**
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notificaciones/**
+            - id: analytics-service
+              uri: lb://analytics-service
+              predicates:
+                - Path=/api/analytics/**,/api/metricas/**
+            - id: import-service
+              uri: lb://import-service
+              predicates:
+                - Path=/api/importaciones/**
 
 springdoc:
   swagger-ui:

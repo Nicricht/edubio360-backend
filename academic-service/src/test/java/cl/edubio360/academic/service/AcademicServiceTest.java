@@ -62,7 +62,6 @@ class AcademicServiceTest {
         assertEquals("Analista Programador", service.crear(request).carrera());
         assertEquals("Analista Programador", service.actualizar(1L, request).carrera());
 
-        // Mimic the managed bidirectional collection loaded by Hibernate.
         sede.addOferta(oferta);
         assertEquals(1, sede.getOfertas().size());
 
