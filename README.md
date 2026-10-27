@@ -69,9 +69,10 @@ Spring Boot 4.0.9, Spring Cloud 2025.1.4, springdoc 3.1.1 y Resilience4j
 2.4.0. Se corrigió la desactivación global de CSRF y se añadieron
 versiones seguras explícitas para Guava, Apache HttpComponents 5,
 Bouncy Castle y RabbitMQ. En la
-[ejecución de CI correspondiente](https://github.com/Nicricht/edubio360-backend/actions/runs/40398656390),
-`verify` y **Snyk Code (SAST)** aprobaron. Snyk Open Source redujo sus
-hallazgos a una única vulnerabilidad distinta: **CVE-2026-92877**
+[ejecución final aprobada](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478),
+`verify`, **Snyk Open Source** y **Snyk Code (SAST)** aprobaron con la
+política de excepción temporal descrita a continuación. La remediación redujo
+los hallazgos a una única vulnerabilidad distinta: **CVE-2026-92877**
 (`org.glassfish.jaxb:jaxb-core:4.0.9`, XXE; presente por dependencias
 transitivas). Según el
 [aviso oficial de Snyk](https://security.snyk.io/vuln/SNYK-JAVA-ORGGLASSFISHJAXB-20883142),
@@ -190,6 +191,34 @@ un balanceador/ingress y puertos internos.
 | IE3 — seguridad | `.github/dependabot.yml`, job `security` | Job Snyk, `ep02-snyk-evidence`; capturas de Dependabot activo |
 | IE4 — despliegue | `deploy-smoke`, `scripts/smoke-mysql.sh` | `ep2-deploy-<SHA>`, `deployment-trace.txt`, logs y Newman |
 | IE5 — orquestación | `docker-compose.yml`, `Dockerfile.service` | `docker compose ps`, segunda instancia Analytics, healthchecks y límites |
+
+**Evidencia real verificada — 27 de octubre de 2026.** El commit
+`54985be320eafde4ba79dea8daebace35ac7274d` completó las cuatro etapas
+de la [ejecución DOY0101 EP2](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478)
+con resultado **Success**:
+
+| Indicador | Prueba observada | Resultado y enlace directo |
+|---|---|---|
+| IE1 | Construcción Docker, usuario sin root, etiqueta del commit y restricciones de Java | [Build non-root image: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012261661) |
+| IE2 | Maven/JUnit/Cucumber/JaCoCo y 18 contratos de configuración | [Verify: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122011346937) |
+| IE3 | Análisis Snyk de dependencias y código con bloqueo ante fallos; una excepción JAXB documentada y con caducidad | [Security: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122011914486) |
+| IE4 | Despliegue con Compose, salud, MySQL, API Gateway, JWT, Swagger y colecciones Newman | [Deploy-smoke: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012534446) |
+| IE5 | MySQL, RabbitMQ, microservicios saludables y segunda instancia Analytics verificada | [Deploy-smoke: Success](https://github.com/Nicricht/edubio360-backend/actions/runs/40450347478/job/122012534446) |
+
+En esa ejecución se comprobaron seis documentos OpenAPI a través del Gateway,
+las operaciones CRUD y las colecciones de Postman/Newman sin fallos.
+La sección **Artifacts** de la ejecución contiene los paquetes descargables:
+`ep02-evidencias` (pruebas y cobertura), `ep02-snyk-evidence` (seguridad),
+`ep2-image-build-54985be320eafde4ba79dea8daebace35ac7274d` (Docker) y
+`ep2-deploy-54985be320eafde4ba79dea8daebace35ac7274d` (logs,
+trazabilidad y Newman). Los artefactos tienen la retención configurada por
+GitHub y deben descargarse si se requiere respaldo permanente.
+
+**Pendiente del equipo antes de enviar:** comprobar que Dependabot alerts
+y security updates están habilitados en GitHub; revisar el Pull Request
+[#25](https://github.com/Nicricht/edubio360-backend/pull/25) y la rama que
+se entregará; escribir las reflexiones individuales sin IA; enviar el enlace
+del repositorio por AVA y correo al docente.
 
 La etiqueta `<SHA>` corresponde a los 40 caracteres del commit que aparece
 en la ejecución de Actions. Los JSON Snyk y resultados Newman se guardan en
