@@ -47,7 +47,7 @@ jobs:
 
       - name: Guardar reportes y JAR
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ep02-evidencias
           if-no-files-found: warn
@@ -110,7 +110,7 @@ jobs:
 
       - name: Save Snyk evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ep02-snyk-evidence
           if-no-files-found: warn
@@ -158,7 +158,7 @@ jobs:
 
       - name: Save build evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ep2-image-build-${{ github.sha }}
           if-no-files-found: warn
@@ -183,7 +183,7 @@ jobs:
 
       - name: Save simulated deployment logs and trace
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ep2-deploy-${{ github.sha }}
           if-no-files-found: warn
