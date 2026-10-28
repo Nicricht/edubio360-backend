@@ -507,3 +507,10 @@ pauta -> estado real -> implementación -> prueba -> evidencia
 ```
 
 Una funcionalidad no se marca como cumplida solamente porque exista código. Debe existir evidencia verificable.
+
+### REFLEXIÓN FINAL
+Con este trabajo pude poner en práctica como Docker Compose, GitHub Actions, las pruebas unitarias con JaCoCo y el análisis de seguridad. Algunas cosas parecían sencillas cuando las veíamos en el material, pero al momento de implementarlas en el proyecto me di cuenta de que tenían más detalles de los que pensaba.
+
+Lo que más me costó fue configurar el pipeline para que todas las etapas funcionaran correctamente, porque a veces aparecían errores y tenía que revisar qué estaba fallando. También se me complicó un poco la parte de Docker Compose, sobre todo al configurar los servicios y sus dependencias. Con JaCoCo aprendí a revisar la cobertura de las pruebas y entendí que no basta con que el código funcione, sino que también hay que comprobarlo. Otra cosa que me quedó más clara fue la importancia de herramientas como Snyk para detectar posibles problemas de seguridad en las dependencias.
+
+Al final, creo que lo que más aprendí fue a entender cómo se relacionan todas estas herramientas dentro de un mismo proyecto. También aprendí a revisar mejor los errores y a tener más paciencia cuando algo no funcionaba a la primera. Siento que ahora tengo más claro para qué sirve un pipeline CI/CD y por qué es útil automatizar estos procesos.
