@@ -1,0 +1,38 @@
+name: AWS diagnostico aislado (solo lectura)
+on:
+  push:
+    branches: [ep3-devops-cloud]
+    paths:
+      - '.github/workflows/aws-recovery-diagnostic.yml'
+      - 'scripts/ep3/aws-recovery-diagnostic.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/ep3-devops-cloud' && vars.EP3_AWS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: ep3-aws
+    env:
+      AWS_REGION: ${{ vars.EP3_AWS_REGION }}
+      EP3_STACK: edubio-devops-ep3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.EP3_LAB_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.EP3_LAB_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.EP3_LAB_SESSION_TOKEN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+      - name: Validar cuenta autorizada
+        env:
+          EXPECTED: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+        run: test -n "$EXPECTED" && test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED"
+      - name: Diagnosticar los dos nodos existentes
+        run: bash scripts/ep3/aws-recovery-diagnostic.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aws-recovery-diagnostic
+          path: artifacts/
