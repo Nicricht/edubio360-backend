@@ -104,7 +104,7 @@ jobs:
           path: artifacts/
   cloud:
     needs: [verify, swarm]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.EP3_AWS_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.EP3_AWS_ENABLED == 'true' && (vars.EP3_AWS_AUTH_MODE != 'academy' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -113,6 +113,8 @@ jobs:
     environment: ep3-aws
     env:
       AWS_REGION: ${{ vars.EP3_AWS_REGION }}
+      EP3_AWS_AUTH_MODE: ${{ vars.EP3_AWS_AUTH_MODE }}
+      EP3_EXPECTED_AWS_ACCOUNT: ${{ vars.EP3_AWS_ACCOUNT_ID }}
       IMAGE_TAG: ${{ github.sha }}
       EP3_STACK: edubio-ep3
     steps:
@@ -138,9 +140,30 @@ jobs:
           snyk test --maven-aggregate-project --severity-threshold=high --ignore-policy
           snyk code test --severity-threshold=high
       - uses: aws-actions/configure-aws-credentials@v4
+        if: vars.EP3_AWS_AUTH_MODE != 'academy'
         with:
           role-to-assume: ${{ vars.EP3_AWS_ROLE_ARN }}
           aws-region: ${{ vars.EP3_AWS_REGION }}
+      - name: Autenticación temporal AWS Academy
+        if: vars.EP3_AWS_AUTH_MODE == 'academy'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.EP3_LAB_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.EP3_LAB_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.EP3_LAB_SESSION_TOKEN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+          allowed-account-ids: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+      - name: Verificar cuenta y roles académicos sin crear recursos
+        if: vars.EP3_AWS_AUTH_MODE == 'academy'
+        run: |
+          set -euo pipefail
+          test -n "$EP3_EXPECTED_AWS_ACCOUNT"
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EP3_EXPECTED_AWS_ACCOUNT"
+          bash scripts/ep3/academy-preflight.sh
+          role="$(aws iam get-role --role-name LabRole --query Role.Arn --output text)"
+          profile="$(aws iam list-instance-profiles-for-role --role-name LabRole --query 'InstanceProfiles[?InstanceProfileName==`LabInstanceProfile`].InstanceProfileName | [0]' --output text)"
+          test "$profile" = LabInstanceProfile
+          printf 'EP3_ACADEMY=true\nEP3_LAB_ROLE_ARN=%s\nEP3_LAB_INSTANCE_PROFILE=%s\n' "$role" "$profile" >> "$GITHUB_ENV"
       - name: Provisionar VPC, EC2, ECR, SQS, Lambda, DynamoDB y API Gateway
         run: bash scripts/ep3/provision.sh
       - uses: actions/checkout@v4
