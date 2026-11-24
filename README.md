@@ -1,5 +1,10 @@
 # EduBío 360 — Backend de Microservicios
 
+## EP3 JVY0101 — Integración y despliegue de soluciones cloud
+
+[Guía de implementación, ejecución y evidencia IE1–IE17](docs/EP3_JVY0101.md). Incluye Docker Swarm, CloudFormation, AWS SQS, Lambda, DynamoDB, API Gateway y CI/CD. No se considera desplegado hasta comprobar los resultados reales de Actions y AWS.
+
+
 ## EP2 DOY0101 — Ingeniería DevOps
 
 Esta sección documenta **la entrega de Ingeniería DevOps (DOY0101)**, separada
