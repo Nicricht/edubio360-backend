@@ -10,7 +10,7 @@ spring:
 security:
   jwt:
     secret: ${JWT_SECRET:change-this-local-demo-secret-32-characters-minimum}
-    ttl-minutes: 120
+    ttl-minutes: 15
 
 eureka:
   client:

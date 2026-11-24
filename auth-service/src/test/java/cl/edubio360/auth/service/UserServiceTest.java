@@ -116,6 +116,20 @@ class UserServiceTest {
     }
 
     @Test
+    void renovacionRequiereCuentaActivaYTokenValido() {
+        when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));
+        when(jwt.renewToken(user, "old")).thenReturn("new");
+        assertEquals("new", service.renovar("user@example.test", "Bearer old").token());
+        assertThrows(ResponseStatusException.class, () -> service.renovar("user@example.test", null));
+        when(jwt.renewToken(user, "bad")).thenThrow(new io.jsonwebtoken.JwtException("invalid"));
+        assertThrows(ResponseStatusException.class, () -> service.renovar("user@example.test", "Bearer bad"));
+        when(users.findByEmailIgnoreCase("missing@example.test")).thenReturn(Optional.empty());
+        assertThrows(ResponseStatusException.class, () -> service.renovar("missing@example.test", "Bearer old"));
+        user.actualizar("user@example.test", "hash", "STUDENT", false);
+        assertThrows(ResponseStatusException.class, () -> service.renovar("user@example.test", "Bearer old"));
+    }
+
+    @Test
     void sesionActualVerificaCuentaActiva() {
         when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));
         assertEquals("STUDENT", service.sesionActual("user@example.test").role());
