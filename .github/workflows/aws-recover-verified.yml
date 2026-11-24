@@ -33,14 +33,14 @@ jobs:
           set -euo pipefail
           git diff --name-only "$IMAGE_TAG" HEAD | while IFS= read -r p; do
             case "$p" in
-              cloud/docker-stack.cloud.yml|scripts/ep3/swarm-deploy.sh|scripts/ep3/deploy-aws.sh|scripts/ep3/aws-recovery-diagnostic.sh|.github/workflows/aws-recovery-diagnostic.yml|.github/workflows/aws-recover-verified.yml|docs/EP3_AWS_RECUPERACION.md) ;;
+              cloud/docker-stack.cloud.yml|scripts/ep3/swarm-deploy.sh|scripts/ep3/swarm-smoke.sh|scripts/ep3/deploy-aws.sh|scripts/ep3/aws-recovery-diagnostic.sh|.github/workflows/aws-recovery-diagnostic.yml|.github/workflows/aws-recover-verified.yml|docs/EP3_AWS_RECUPERACION.md) ;;
               *) echo "Cambio no autorizado para recuperar imágenes verificadas: $p"; exit 1;;
             esac
           done
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949435" | jq -e --arg sha "$IMAGE_TAG" '.head_sha==$sha and .head_branch=="ep3-devops-cloud"' >/dev/null
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949435/jobs?per_page=100" | jq -e '([.jobs[]|select(.name=="verify" or .name=="swarm" or .name=="Grafana UI preflight aislado")|.conclusion] == ["success","success","success"]) and ([.jobs[]|select(.name=="cloud")|.steps[]|select(.name=="Seguridad y calidad frontend antes de aprovisionar AWS" or .name=="Bloqueo de seguridad antes de aprovisionar AWS" or .name=="Construir y publicar imágenes en ECR")|.conclusion] == ["success","success","success"])' >/dev/null
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949528" | jq -e --arg sha "$IMAGE_TAG" '.head_sha==$sha and .conclusion=="success"' >/dev/null
-          bash -n scripts/ep3/swarm-deploy.sh scripts/ep3/deploy-aws.sh
+          for script in scripts/ep3/swarm-deploy.sh scripts/ep3/swarm-smoke.sh scripts/ep3/deploy-aws.sh; do bash -n "$script"; done
       - uses: actions/download-artifact@v4
         with:
           name: ep3-ci-metrics

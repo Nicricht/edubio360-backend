@@ -133,10 +133,10 @@ docker service scale --detach=true edubio_analytics-service=2
 scale_attempts=36
 if [ "${EP3_CLOUD:-false}" = true ]; then scale_attempts=120; fi
 for attempt in $(seq 1 "$scale_attempts"); do
-  if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "2/2" ]; then break; fi
+  if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}' | awk '{print $1}')" = "2/2" ]; then break; fi
   sleep 5
 done
-test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "2/2"
+test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}' | awk '{print $1}')" = "2/2"
 registry_converged analytics-service 2 /api/analytics/resumen
 docker service ps edubio_analytics-service | tee artifacts/analytics-replicas.txt
 if [ "${EP3_CLOUD:-false}" = true ]; then
@@ -153,10 +153,10 @@ benchmark 2 1
 benchmark 2 8
 docker service scale --detach=true edubio_analytics-service=1
 for attempt in $(seq 1 "$scale_attempts"); do
-  if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
+  if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}' | awk '{print $1}')" = "1/1" ]; then break; fi
   sleep 5
 done
-test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1"
+test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}' | awk '{print $1}')" = "1/1"
 registry_converged analytics-service 1 /api/analytics/resumen
 trap - EXIT
 # Second independent scenario: read-only academic catalogue, no mutation or
@@ -167,10 +167,10 @@ benchmark 1 8 academic /api/ofertas
 trap 'docker service scale --detach=true edubio_academic-service=1 >/dev/null 2>&1 || true' EXIT
 docker service scale --detach=true edubio_academic-service=2
 for attempt in $(seq 1 "$scale_attempts"); do
-  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "2/2" ]; then break; fi
+  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}' | awk '{print $1}')" = "2/2" ]; then break; fi
   sleep 5
 done
-test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "2/2"
+test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}' | awk '{print $1}')" = "2/2"
 registry_converged academic-service 2 /api/ofertas
 docker service ps edubio_academic-service | tee artifacts/academic-replicas.txt
 if [ "${EP3_CLOUD:-false}" = true ]; then
@@ -183,10 +183,10 @@ benchmark 2 1 academic /api/ofertas
 benchmark 2 8 academic /api/ofertas
 docker service scale --detach=true edubio_academic-service=1
 for attempt in $(seq 1 "$scale_attempts"); do
-  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
+  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}' | awk '{print $1}')" = "1/1" ]; then break; fi
   sleep 5
 done
-test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "1/1"
+test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}' | awk '{print $1}')" = "1/1"
 registry_converged academic-service 1 /api/ofertas
 trap - EXIT
 unset BENCH_TOKEN BENCH_ROUTE

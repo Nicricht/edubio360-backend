@@ -44,7 +44,7 @@ if [ "${EP3_CLOUD:-false}" = true ]; then
     deadline=$((SECONDS+900))
     healthy=false
     while ((SECONDS < deadline)); do
-      if [ "$(docker service ls --filter "name=edubio_$service" --format '{{.Replicas}}')" = "1/1" ] &&
+      if [ "$(docker service ls --filter "name=edubio_$service" --format '{{.Replicas}}' | awk '{print $1}')" = "1/1" ] &&
          timeout 20s docker run --rm --network edubio_backend --entrypoint curl "$IMAGE_PREFIX/api-gateway:$IMAGE_TAG" -fsS --max-time 10 "http://$service:${ports[$service]}/actuator/health" | jq -e '.status=="UP"' >/dev/null; then
         healthy=true; echo "OK $service"; break
       fi
