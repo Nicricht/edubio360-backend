@@ -81,8 +81,9 @@ for attempt in $(seq 1 60); do
   sleep 3
 done
 if [ -n "${RECEIPT_TABLE:-}" ]; then
+  mkdir -p artifacts
   for attempt in $(seq 1 60); do
-    if aws dynamodb get-item --table-name "$RECEIPT_TABLE" --consistent-read --key "$(jq -nc --arg id "orientation.confirmed:$id" '{eventId:{S:$id}}')" | jq -e '.Item.estado.S == "CONSTANCIA_GENERADA"' >/dev/null; then
+    if aws dynamodb get-item --table-name "$RECEIPT_TABLE" --consistent-read --key "$(jq -nc --arg id "orientation.confirmed:$id" '{eventId:{S:$id}}')" | jq -e --arg id "orientation.confirmed:$id" '.Item | select(.eventId.S==$id and .estado.S=="CONSTANCIA_GENERADA") | {eventId:.eventId.S,estado:.estado.S}' > artifacts/cloud-receipt.json; then
       echo "SQS -> Lambda -> DynamoDB: constancia verificada para solicitud $id"; break
     fi
     test "$attempt" -lt 60

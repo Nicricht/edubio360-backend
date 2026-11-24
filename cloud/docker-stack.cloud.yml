@@ -30,6 +30,13 @@
           }
         }
       }
+    },
+    "analytics-service": {
+      "deploy": {
+        "placement": {
+          "max_replicas_per_node": 1
+        }
+      }
     }
   }
 }
