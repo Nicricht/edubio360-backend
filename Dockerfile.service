@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 ARG PACKAGE_STAGE=build-single
-FROM maven:3.9.9-eclipse-temurin-21 AS sources
+FROM maven:3.9-eclipse-temurin-26 AS sources
 WORKDIR /workspace
 COPY pom.xml .
 COPY discovery-server discovery-server
