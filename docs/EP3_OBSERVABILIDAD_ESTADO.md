@@ -7,3 +7,5 @@ El pipeline conserva los controles de seguridad, compila, prueba, genera métric
 Referencias técnicas: https://grafana.com/docs/alloy/latest/reference/components/loki/loki.process/ y https://docs.spring.io/spring-boot/4.0/reference/actuator/tracing.html.
 
 Las conclusiones y justificaciones individuales quedan a cargo de los estudiantes conforme a la pauta.
+
+La prueba monitoring-smoke.sh ahora exige registros de los ocho servicios, una traza compartida por Gateway y Academic y métricas de contenedores. publish-ci-metrics.sh exige comprobar los valores publicados en Prometheus. Los archivos JSON son evidencia automática solo tras ejecución satisfactoria. El pipeline incluye la prueba Chromium tanto local como en la URL HTTPS del despliegue cloud. No se considera una prueba aprobada mientras el job esté pendiente o falle.

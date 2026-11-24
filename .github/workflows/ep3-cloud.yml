@@ -159,6 +159,11 @@ jobs:
           docker push "$registry/edubio-ep3/frontend:$IMAGE_TAG"
       - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo
         run: bash scripts/ep3/deploy-aws.sh
+      - name: Prueba Fullstack en la URL HTTPS de AWS
+        run: |
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+          FRONTEND_URL="$(jq -er '.[] | select(.OutputKey=="ApiUrl") | .OutputValue' artifacts/cloud-outputs.json)" python3 scripts/ep3/browser-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
