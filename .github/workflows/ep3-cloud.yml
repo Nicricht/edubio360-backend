@@ -40,6 +40,8 @@ jobs:
     timeout-minutes: 60
     env:
       IMAGE_PREFIX: edubio360
+      EP3_MONITORING: 'true'
+      GRAFANA_ADMIN_PASSWORD: ephemeral-ci-grafana-only
       IMAGE_TAG: ${{ github.sha }}
       MYSQL_ROOT_PASSWORD: ephemeral-ci-mysql-ep3
       RABBITMQ_PASSWORD: ephemeral-ci-rabbit-ep3
@@ -57,6 +59,7 @@ jobs:
           bash scripts/ep3/swarm-deploy.sh
           bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt
           bash scripts/ep3/flow.sh | tee artifacts/flow.txt
+          bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
       - name: Guardar diagnóstico
         if: always()
         run: |

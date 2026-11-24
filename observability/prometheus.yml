@@ -1,0 +1,59 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: discovery-server
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.discovery-server]
+        type: A
+        port: 8761
+        refresh_interval: 15s
+  - job_name: auth-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.auth-service]
+        type: A
+        port: 8081
+        refresh_interval: 15s
+  - job_name: academic-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.academic-service]
+        type: A
+        port: 8082
+        refresh_interval: 15s
+  - job_name: guidance-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.guidance-service]
+        type: A
+        port: 8083
+        refresh_interval: 15s
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.notification-service]
+        type: A
+        port: 8084
+        refresh_interval: 15s
+  - job_name: analytics-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.analytics-service]
+        type: A
+        port: 8085
+        refresh_interval: 15s
+  - job_name: import-service
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.import-service]
+        type: A
+        port: 8086
+        refresh_interval: 15s
+  - job_name: api-gateway
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [tasks.api-gateway]
+        type: A
+        port: 8080
+        refresh_interval: 15s
