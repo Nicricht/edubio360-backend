@@ -8,7 +8,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       IMAGE_PREFIX: edubio360
       IMAGE_TAG: local
@@ -38,10 +38,23 @@ jobs:
         run: |
           set -euo pipefail
           base=http://127.0.0.1:8080
-          for i in $(seq 1 100); do
-            if curl -fsS --max-time 5 "$base/api/ofertas" | jq -e 'length>0' >/dev/null && curl -fsS --max-time 5 "$base/api/sedes" | jq -e 'length>0' >/dev/null; then break; fi
-            sleep 3
+          # Esperar la publicación real de las rutas, no solamente el arranque de los contenedores.
+          deadline=$((SECONDS+600))
+          ready=false
+          while (( SECONDS < deadline )); do
+            if curl -fsS --max-time 5 "$base/actuator/health" | jq -e '.status=="UP"' >/dev/null 2>&1 &&
+               curl -fsS --max-time 5 "$base/openapi/auth" | jq -e '.paths | length>0' >/dev/null 2>&1 &&
+               curl -fsS --max-time 5 "$base/openapi/guidance" | jq -e '.paths | length>0' >/dev/null 2>&1 &&
+               curl -fsS --max-time 5 "$base/openapi/notification" | jq -e '.paths | length>0' >/dev/null 2>&1 &&
+               curl -fsS --max-time 5 "$base/api/ofertas" | jq -e 'length>0' >/dev/null 2>&1 &&
+               curl -fsS --max-time 5 "$base/api/sedes" | jq -e 'length>0' >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 5
           done
+          test "$ready" = true
+          echo "Gateway y rutas de negocio listas"
           pass="$(openssl rand -hex 24)"
           echo "::add-mask::$pass"
           export PASS="$pass"
@@ -111,7 +124,7 @@ jobs:
                   expect(buttons.nth(1)).to_be_visible(timeout=30000)
                   page.screenshot(path=str(out/"catalogo-cargado.png"))
                   buttons.nth(0).click()
-                  buttons.nth(0).click() if False else buttons.nth(1).click()
+                  buttons.nth(1).click()
                   page.get_by_role("link",name="Comparar",exact=False).first.click()
                   expect(page.locator(".compare-card").nth(1)).to_be_visible(timeout=15000)
                   page.screenshot(path=str(out/"comparacion-dos-ofertas.png"))
@@ -123,6 +136,14 @@ jobs:
           if not any("file" in r for r in results):raise SystemExit(1)
           PY
           docker run --rm --network host -e CAPTURE_PASS -v "$PWD/capturas:/evidence" -v /tmp/captura-roles.py:/tmp/captura-roles.py:ro mcr.microsoft.com/playwright/python:v1.56.0-noble sh -c 'pip install --quiet playwright==1.56.0 && python /tmp/captura-roles.py'
+      - name: Diagnóstico de arranque
+        if: failure()
+        run: |
+          mkdir -p capturas
+          docker stack services edubio > capturas/diagnostico-servicios.txt 2>&1 || true
+          for s in auth-service api-gateway academic-service guidance-service; do
+            docker service ps --no-trunc "edubio_$s" >> capturas/diagnostico-servicios.txt 2>&1 || true
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
