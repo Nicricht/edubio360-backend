@@ -87,6 +87,20 @@ public class UserService {
         return new LoginResponse(jwtService.createToken(user), user.getEmail(), user.getPrimaryRole());
     }
 
+    public LoginResponse renovar(String email, String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida");
+        }
+        UserEntity user = users.findByEmailIgnoreCase(normalize(email))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida"));
+        if (!user.isActive()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida");
+        try {
+            return new LoginResponse(jwtService.renewToken(user, authorization.substring(7)), user.getEmail(), user.getPrimaryRole());
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión no renovable");
+        }
+    }
+
     public UserResponse sesionActual(String email) {
         UserEntity user = users.findByEmailIgnoreCase(normalize(email))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida"));

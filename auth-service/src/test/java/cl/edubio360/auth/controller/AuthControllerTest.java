@@ -44,6 +44,14 @@ class AuthControllerTest {
     }
 
     @Test
+    void renuevaSesionAutenticada() throws Exception {
+        when(service.renovar("user@example.test", "Bearer old")).thenReturn(new LoginResponse("new", "user@example.test", "STUDENT"));
+        mvc.perform(post("/api/auth/refresh").header("X-User-Email", "user@example.test")
+                .header("Authorization", "Bearer old")).andExpect(status().isOk()).andExpect(jsonPath("$.token").value("new"));
+        mvc.perform(post("/api/auth/refresh")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void consultaSesionActual() throws Exception {
         when(service.sesionActual("user@example.test"))
                 .thenReturn(new UserResponse(1L, "user@example.test", "STUDENT", true));

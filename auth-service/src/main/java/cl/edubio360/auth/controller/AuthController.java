@@ -36,6 +36,12 @@ public class AuthController {
         return service.actualizarPerfil(email, perfil);
     }
 
+    @PostMapping("/refresh")
+    public LoginResponse renovar(@RequestHeader("X-User-Email") String email,
+                                  @RequestHeader("Authorization") String authorization) {
+        return service.renovar(email, authorization);
+    }
+
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return service.login(request.email(), request.password());
