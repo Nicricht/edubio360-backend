@@ -9,9 +9,7 @@ public final class AuthRequests {
     private AuthRequests() {}
 
     public record RegisterRequest(@NotBlank @Email String email,
-                                  @NotBlank @Size(min = 8, max = 72) String password, @Valid ProfileData perfil) {
-        public RegisterRequest(String email, String password) { this(email, password, null); }
-    }
+                                  @NotBlank @Size(min = 8, max = 72) String password, @Valid ProfileData perfil) {}
 
     public record LoginRequest(@NotBlank @Email String email,
                                @NotBlank String password) {}

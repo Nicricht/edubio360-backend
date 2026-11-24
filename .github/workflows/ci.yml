@@ -34,6 +34,10 @@ jobs:
       - name: Maven clean verify
         run: mvn -B clean verify
 
+      - name: Diagnóstico JaCoCo
+        if: always()
+        run: python -B scripts/ep3/coverage-diagnostics.py
+
       - name: Verify EP2 delivery configuration contracts
         run: |
           python -m pip install 'PyYAML==6.0.3'

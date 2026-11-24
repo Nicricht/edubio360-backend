@@ -56,23 +56,10 @@ class SpringSecurityUpgradeContract(unittest.TestCase):
 
 
 class TemporaryJaxbExceptionContract(unittest.TestCase):
-    def test_only_authorized_cve_is_temporarily_excepted_and_expires(self):
-        policy_path = ROOT / ".snyk"
-        self.assertTrue(policy_path.is_file(), "La política temporal de Snyk debe existir")
-        policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    def test_no_expired_or_unapproved_exceptions(self):
+        policy = yaml.safe_load((ROOT / ".snyk").read_text(encoding="utf-8"))
         self.assertEqual(policy["version"], "v1.25.0")
-        self.assertEqual(list(policy["ignore"]), ["SNYK-JAVA-ORGGLASSFISHJAXB-20883142"])
-        exceptions = policy["ignore"]["SNYK-JAVA-ORGGLASSFISHJAXB-20883142"]
-        self.assertEqual(len(exceptions), 1)
-        self.assertEqual(list(exceptions[0]), ["*"])
-        details = exceptions[0]["*"]
-        self.assertIn("CVE-2026-92877", details["reason"])
-        self.assertIn("JAXP", details["reason"])
-        self.assertEqual(details["expires"], "2026-11-09T23:59:59.000Z")
-        expires = datetime.fromisoformat(details["expires"].replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
-        self.assertGreater(expires, now, "Excepción vencida: CI debe bloquear el despliegue")
-        self.assertLessEqual(expires - now, timedelta(days=15))
+        self.assertEqual(policy.get("ignore"), {}, "EP3 no autoriza excepciones de vulnerabilidades")
 
     def test_security_gate_still_scans_everything_else(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
