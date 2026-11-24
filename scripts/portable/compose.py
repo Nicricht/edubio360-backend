@@ -11,8 +11,15 @@ for service in services.values():
     service.pop("build", None)
     service.pop("container_name", None)
     service["pull_policy"] = "never"
+    if service["image"].startswith("edubio360/"):
+        env = service.setdefault("environment", {})
+        env["JAVA_TOOL_OPTIONS"] = "-XX:MaxRAMPercentage=65 -Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet="
+        env["EUREKA_INSTANCE_PREFER_IP_ADDRESS"] = "true"
     for port in service.get("ports", []):
         port["host_ip"] = "127.0.0.1"
+# Match the already certified Swarm gateway policy: public read-only catalog,
+# mandatory JWT and role enforcement for private and administrative operations.
+services["api-gateway"]["environment"]["EP3_STRICT_ACCESS"] = "true"
 # Keep the database initialization path relative to the portable directory.
 for volume in services["mysql"]["volumes"]:
     if volume["type"] == "bind":
