@@ -176,6 +176,139 @@
           "legendFormat": "{{job}} {{instance}}"
         }
       ]
+    },
+    {
+      "id": 7,
+      "title": "Cobertura de líneas JaCoCo",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "edubio-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "edubio_ci_coverage_ratio",
+          "legendFormat": "{{module}} {{container_label_com_docker_swarm_service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Duración real del despliegue",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "edubio-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "edubio_ci_deploy_duration_seconds",
+          "legendFormat": "{{module}} {{container_label_com_docker_swarm_service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "CPU de contenedores (núcleos)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "edubio-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{container_label_com_docker_swarm_service_name=~\"edubio_.+\"}[5m]))",
+          "legendFormat": "{{module}} {{container_label_com_docker_swarm_service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "RAM de contenedores",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "edubio-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{container_label_com_docker_swarm_service_name=~\"edubio_.+\"})",
+          "legendFormat": "{{module}} {{container_label_com_docker_swarm_service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Logs de los microservicios",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "edubio-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"edubio-docker\",service=~\".+\"}"
+        }
+      ]
     }
   ]
 }
