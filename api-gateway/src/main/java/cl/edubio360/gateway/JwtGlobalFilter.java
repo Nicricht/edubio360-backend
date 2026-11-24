@@ -34,7 +34,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (isPublic(path)) {
+        if (isPublic(path) || (strictAccess && "GET".equals(exchange.getRequest().getMethod().name())
+                && (path.equals("/api/ofertas") || path.matches("/api/ofertas/[0-9]+") || path.equals("/api/sedes")))) {
             return chain.filter(exchange);
         }
 

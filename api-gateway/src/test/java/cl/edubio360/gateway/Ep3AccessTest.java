@@ -37,7 +37,7 @@ class Ep3AccessTest {
     @Test void publicoNoRequiereToken() {
         JwtGlobalFilter filter = filter(true);
         for (String path : java.util.List.of("/api/auth/login", "/api/auth/register",
-                "/actuator/health", "/openapi/academic")) {
+                "/actuator/health", "/openapi/academic", "/api/ofertas", "/api/ofertas/1", "/api/sedes")) {
             MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path).build());
             GatewayFilterChain chain = chain();
             filter.filter(exchange, chain).block();
@@ -49,11 +49,11 @@ class Ep3AccessTest {
     @Test void sinTokenOInvalidoDevuelve401() {
         JwtGlobalFilter filter = filter(true);
         GatewayFilterChain chain = chain();
-        MockServerWebExchange missing = MockServerWebExchange.from(MockServerHttpRequest.get("/api/ofertas").build());
+        MockServerWebExchange missing = MockServerWebExchange.from(MockServerHttpRequest.get("/api/solicitudes/mias").build());
         filter.filter(missing, chain).block();
         assertEquals(HttpStatus.UNAUTHORIZED, missing.getResponse().getStatusCode());
         assertTrue(missing.getResponse().getBodyAsString().block().contains("Token JWT requerido"));
-        MockServerWebExchange invalid = MockServerWebExchange.from(MockServerHttpRequest.get("/api/ofertas")
+        MockServerWebExchange invalid = MockServerWebExchange.from(MockServerHttpRequest.get("/api/solicitudes/mias")
                 .header("Authorization", "Bearer bad").build());
         filter.filter(invalid, chain).block();
         assertEquals(HttpStatus.UNAUTHORIZED, invalid.getResponse().getStatusCode());
@@ -64,7 +64,7 @@ class Ep3AccessTest {
     @Test void tokenValidoReemplazaCabecerasNoConfiables() {
         JwtGlobalFilter filter = filter(true);
         GatewayFilterChain chain = chain();
-        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/ofertas")
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/solicitudes/mias")
                 .header("Authorization", "Bearer " + token("STUDENT"))
                 .header("X-User-Role", "ADMIN").header("X-User-Email", "fake").build());
         filter.filter(exchange, chain).block();

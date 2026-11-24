@@ -18,7 +18,8 @@ done
 for name in auth academic guidance notification analytics import; do
   curl -fsS --retry 12 --retry-all-errors --retry-delay 5 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null
 done
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/ofertas")" = 401
+test "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/usuarios")" = 401
+curl -fsS --retry 12 --retry-all-errors "$BASE_URL/api/ofertas" | jq -e 'type == "array" and length > 0' >/dev/null
 docker node ls
 docker stack services edubio
 docker service scale edubio_analytics-service=2
