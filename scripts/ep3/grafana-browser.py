@@ -11,10 +11,12 @@ password = os.environ["GRAFANA_ADMIN_PASSWORD"]
 art = Path("artifacts")
 art.mkdir(exist_ok=True)
 with sync_playwright() as pw:
-    browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage'])
-    context = browser.new_context(viewport={"width": 1600, "height": 1000})
+    # Use full Chromium and a valid BCP-47 locale instead of the container POSIX locale.
+    browser = pw.chromium.launch(channel="chromium", headless=True, args=["--disable-dev-shm-usage", "--lang=en-US"])
+    context = browser.new_context(locale="en-US", timezone_id="UTC", viewport={"width": 1600, "height": 1000})
     page = context.new_page()
     diagnostics = []
+    page.on("console", lambda msg: diagnostics.append({"console": msg.type, "message": msg.text[:500]}) if msg.type in ("error", "warning") else None)
     page.on('pageerror', lambda error: diagnostics.append({'pageerror': str(error)[:500]}))
     page.on('requestfailed', lambda req: diagnostics.append({'failed': urlsplit(req.url).path, 'reason': req.failure}))
     page.on('response', lambda res: diagnostics.append({'status': res.status, 'path': urlsplit(res.url).path}) if res.status >= 400 else None)
@@ -68,7 +70,8 @@ with sync_playwright() as pw:
             check = context.request.get(asset, timeout=15000)
             if not check.ok or 'text/html' in check.headers.get('content-type', ''):
                 raise RuntimeError(f'Grafana script unavailable: {urlsplit(asset).path} HTTP {check.status}')
-        for title, name in [
+        print("Grafana browser environment:", page.evaluate("() => ({language:navigator.language, locale:Intl.DateTimeFormat().resolvedOptions().locale, secureContext:isSecureContext, ua:navigator.userAgent})"), flush=True)
+        panels = [
             ("Disponibilidad por servicio", "grafana-disponibilidad"),
             ("Peticiones HTTP por segundo", "grafana-peticiones"),
             ("Errores HTTP 5xx", "grafana-errores"),
@@ -76,14 +79,21 @@ with sync_playwright() as pw:
             ("Duración real del despliegue", "grafana-despliegue"),
             ("CPU de contenedores (núcleos)", "grafana-recursos"),
             ("RAM de contenedores", "grafana-memoria"),
-        ]:
+        ]
+        preflight = os.getenv("GRAFANA_UI_PREFLIGHT") == "true"
+        if preflight:
+            panels = panels[:1]
+        for title, name in panels:
             panel = page.get_by_text(title, exact=True).first
             expect(panel).to_be_visible(timeout=45000)
             panel.scroll_into_view_if_needed(timeout=30000)
             # Let the real dashboard render after scrolling a lazy-loaded panel.
             page.wait_for_timeout(2500)
-            page.screenshot(path=str(art / (name + ".png")))
-            print("Grafana: captura real de " + title, flush=True)
+            if preflight:
+                print("Grafana UI preflight: panel visible; no se certifican métricas con este entorno aislado", flush=True)
+            else:
+                page.screenshot(path=str(art / (name + ".png")))
+                print("Grafana: captura real de " + title, flush=True)
     except Exception:
         # Never capture a login form or print credentials/cookies.
         print("Grafana browser diagnostic: title=" + page.title(), flush=True)

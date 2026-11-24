@@ -73,8 +73,55 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           retention-days: 2
+  grafana-ui-preflight:
+    name: Grafana UI preflight aislado
+    needs: scope
+    if: needs.scope.outputs.mode == 'full'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GRAFANA_ADMIN_PASSWORD: ephemeral-ci-grafana-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Arrancar Grafana con el dashboard real del repositorio
+        run: |
+          set -euo pipefail
+          docker run -d --name grafana-ui-check -p 127.0.0.1:3000:3000 \
+            -e GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
+            -e GF_SERVER_ROOT_URL=http://localhost:3000/ \
+            -e GF_PLUGINS_PREINSTALL_DISABLED=true \
+            -v "$PWD/observability/datasources.yml:/etc/grafana/provisioning/datasources/edubio.yml:ro" \
+            -v "$PWD/observability/dashboards.yml:/etc/grafana/provisioning/dashboards/edubio.yml:ro" \
+            -v "$PWD/observability/edubio.json:/var/lib/grafana/dashboards/edubio.json:ro" \
+            grafana/grafana:12.1.0
+          mkdir -p artifacts
+      - name: Validar interfaz real sin levantar los microservicios
+        run: |
+          set -euo pipefail
+          docker build -t edubio360-browser:1.56.0 - <<'DOCKERFILE'
+          FROM mcr.microsoft.com/playwright/python:v1.56.0-noble
+          RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
+          DOCKERFILE
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e GRAFANA_ADMIN_PASSWORD \
+            -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
+            -e GRAFANA_URL=http://localhost:3000 -e GRAFANA_UI_PREFLIGHT=true \
+            -v "$PWD/scripts/ep3/grafana-browser.py:/work/grafana-browser.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/grafana-browser.py
+      - name: Guardar diagnostico aislado
+        if: always()
+        run: |
+          mkdir -p artifacts
+          docker logs grafana-ui-check > artifacts/grafana-ui-preflight.log 2>&1 || true
+          docker rm -f grafana-ui-check || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grafana-ui-preflight
+          path: artifacts/
   swarm:
-    needs: verify
+    needs: [verify, grafana-ui-preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
@@ -144,21 +191,13 @@ jobs:
           set -o pipefail
           bash scripts/ep3/flow.sh | tee artifacts/flow.txt
       - name: Observabilidad completa
+        id: monitoring
         timeout-minutes: 18
         run: |
           set -o pipefail
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
           bash scripts/ep3/publish-ci-metrics.sh
           python3 scripts/ep3/observability-report.py > artifacts/observability-summary.json
-      - name: Capturas reales de Grafana
-        timeout-minutes: 8
-        run: |
-          docker run --rm --init --network host --ipc=host \
-            --user "$(id -u):$(id -g)" -e HOME=/tmp -e GRAFANA_ADMIN_PASSWORD \
-            -e GRAFANA_URL=http://localhost:3000 \
-            -v "$PWD/scripts/ep3/grafana-browser.py:/work/grafana-browser.py:ro" \
-            -v "$PWD/artifacts:/work/artifacts" -w /work \
-            edubio360-browser:1.56.0 python /work/grafana-browser.py
       - name: Exportar Swagger y Excel de endpoints
         timeout-minutes: 3
         run: |
@@ -175,6 +214,16 @@ jobs:
             -v "$PWD/scripts/ep3/browser-smoke.py:/work/browser-smoke.py:ro" \
             -v "$PWD/artifacts:/work/artifacts" -w /work \
             edubio360-browser:1.56.0 python /work/browser-smoke.py
+      - name: Capturas reales de Grafana
+        if: ${{ !cancelled() && steps.monitoring.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e GRAFANA_ADMIN_PASSWORD \
+            -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e GRAFANA_URL=http://localhost:3000 \
+            -v "$PWD/scripts/ep3/grafana-browser.py:/work/grafana-browser.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/grafana-browser.py
       - name: Guardar diagnóstico
         if: always()
         run: |
