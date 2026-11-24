@@ -82,6 +82,30 @@ class AcademicServiceTest {
     }
 
     @Test
+    void conservaDetallesDeLaOfertaAlCrearYEditar() {
+        when(sedes.findById(1L)).thenReturn(Optional.of(sede));
+        when(ofertas.save(any(OfertaAcademica.class))).thenAnswer(i -> i.getArgument(0));
+        OfertaRequest completa = new OfertaRequest("Ingeniería Informática", "Presencial", "Diurna",
+                BigDecimal.TEN, BigDecimal.ONE, 1L, "Tecnología", 8, "Profesional", "Descripción de prueba",
+                "Informática", "oferta.jpg", 20, 5);
+        var creada = service.crear(completa);
+        assertEquals("Tecnología", creada.area());
+        assertEquals(8, creada.duracion());
+        assertEquals("Profesional", creada.nivel());
+        assertEquals("Descripción de prueba", creada.descripcion());
+        assertEquals("Informática", creada.grupoComparacion());
+        assertEquals("oferta.jpg", creada.imagen());
+        assertEquals(20, creada.cupos());
+        assertEquals(5, creada.cupoCritico());
+        oferta.actualizarDetalles("Tecnología", 8, "Profesional", "Anterior", "Informática", "oferta.jpg", 20, 5);
+        when(ofertas.findById(1L)).thenReturn(Optional.of(oferta));
+        var editada = service.actualizar(1L, new OfertaRequest("Ingeniería Informática", "Presencial", "Diurna",
+                BigDecimal.TEN, BigDecimal.ONE, 1L));
+        assertEquals("Anterior", editada.descripcion());
+        assertEquals(8, editada.duracion());
+    }
+
+    @Test
     void listaSedes() {
         when(sedes.findAll()).thenReturn(List.of(sede));
         assertEquals(1, service.listarSedes().size());

@@ -40,6 +40,7 @@ public class AcademicService {
         Sede sede = getSede(request.sedeId());
         OfertaAcademica oferta = new OfertaAcademica(request.carrera(), request.modalidad(), request.jornada(),
                 request.arancel(), request.matricula(), sede);
+        oferta.actualizarDetalles(request.area(), request.duracion(), request.nivel(), request.descripcion(), request.grupoComparacion(), request.imagen(), request.cupos(), request.cupoCritico());
         return toResponse(ofertas.save(oferta));
     }
 
@@ -49,6 +50,7 @@ public class AcademicService {
         Sede sede = getSede(request.sedeId());
         oferta.actualizar(request.carrera(), request.modalidad(), request.jornada(),
                 request.arancel(), request.matricula(), sede);
+        oferta.actualizarDetalles(request.area(), request.duracion(), request.nivel(), request.descripcion(), request.grupoComparacion(), request.imagen(), request.cupos(), request.cupoCritico());
         return toResponse(oferta);
     }
 
@@ -78,6 +80,7 @@ public class AcademicService {
     private OfertaResponse toResponse(OfertaAcademica o) {
         Sede s = o.getSede();
         return new OfertaResponse(o.getId(), o.getCarrera(), s.getInstitucion(), s.getId(), s.getNombre(),
-                s.getComuna(), o.getModalidad(), o.getJornada(), o.getArancel(), o.getMatricula());
+                s.getComuna(), o.getModalidad(), o.getJornada(), o.getArancel(), o.getMatricula(),
+                o.getArea(), o.getDuracion(), o.getNivel(), o.getDescripcion(), o.getGrupoComparacion(), o.getImagen(), o.getCupos(), o.getCupoCritico());
     }
 }
