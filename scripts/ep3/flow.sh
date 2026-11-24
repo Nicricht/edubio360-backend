@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'printf "Fallo del flujo en línea %s (código %s)\\n" "$LINENO" "$?" >&2' ERR
 base="${BASE_URL:-http://127.0.0.1:8080}"
 curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"

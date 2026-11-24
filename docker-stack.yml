@@ -100,7 +100,8 @@
     "discovery-server": {
       "image": "${IMAGE_PREFIX}/discovery-server:${IMAGE_TAG}",
       "environment": {
-        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=65 -Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet="
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=65 -Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet=",
+        "EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS": "5000"
       },
       "networks": [
         "backend"
@@ -200,7 +201,11 @@
         "DB_PORT": "3306",
         "DB_NAME": "academicdb",
         "DB_USER": "root",
-        "DB_PASSWORD": "${MYSQL_ROOT_PASSWORD}"
+        "DB_PASSWORD": "${MYSQL_ROOT_PASSWORD}",
+        "SERVER_SHUTDOWN": "graceful",
+        "SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE": "20s",
+        "EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS": "5",
+        "EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS": "20"
       },
       "networks": [
         "backend"
@@ -234,7 +239,8 @@
             "memory": "256M"
           }
         }
-      }
+      },
+      "stop_grace_period": "45s"
     },
     "guidance-service": {
       "image": "${IMAGE_PREFIX}/guidance-service:${IMAGE_TAG}",
@@ -347,7 +353,11 @@
         "DB_PORT": "3306",
         "DB_NAME": "analyticsdb",
         "DB_USER": "root",
-        "DB_PASSWORD": "${MYSQL_ROOT_PASSWORD}"
+        "DB_PASSWORD": "${MYSQL_ROOT_PASSWORD}",
+        "SERVER_SHUTDOWN": "graceful",
+        "SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE": "20s",
+        "EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS": "5",
+        "EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS": "20"
       },
       "networks": [
         "backend"
@@ -381,7 +391,8 @@
             "memory": "256M"
           }
         }
-      }
+      },
+      "stop_grace_period": "45s"
     },
     "import-service": {
       "image": "${IMAGE_PREFIX}/import-service:${IMAGE_TAG}",
@@ -437,7 +448,8 @@
         "EUREKA_URL": "http://discovery-server:8761/eureka/",
         "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "true",
         "JWT_SECRET": "${JWT_SECRET}",
-        "EP3_STRICT_ACCESS": "true"
+        "EP3_STRICT_ACCESS": "true",
+        "SPRING_CLOUD_LOADBALANCER_CACHE_TTL": "5s"
       },
       "networks": [
         "backend"

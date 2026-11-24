@@ -94,6 +94,34 @@ benchmark() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$replicas" "$concurrency" "$requests" "$errors" "$mean" "$p95" "$rate" | tee -a "artifacts/$service-load-summary.tsv"
   test "$errors" -eq 0
 }
+# Docker task convergence is not Eureka registry convergence.
+# Require the registry to contain exactly the live task IPs before proceeding.
+# Then exercise the public read path repeatedly to detect stale LB instances.
+registry_converged() {
+  local service="$1" expected="$2" route="$3" count=0 registry live registered
+  for attempt in $(seq 1 45); do
+    if registry="$(docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 5 -H 'Accept: application/json' "http://discovery-server:8761/eureka/apps/${service^^}")" &&
+       live="$(docker run --rm --network edubio_backend --entrypoint getent "$image" ahostsv4 "tasks.$service" | awk '{print $1}' | sort -u)" &&
+       registered="$(jq -er '.application.instance | if type=="array" then . else [.] end | map(select(.status=="UP") | .ipAddr) | unique | sort | .[]' <<< "$registry" | sort -u)" &&
+       [ "$(printf '%s\n' "$live" | grep -c .)" -eq "$expected" ] &&
+       [ "$live" = "$registered" ]; then
+      if curl -fsS -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL$route" >/dev/null; then
+        count=$((count+1))
+        if [ "$count" -ge 6 ]; then
+          printf '%s: %s replicas registradas y accesibles\n' "$service" "$expected" | tee -a artifacts/registry-convergence.txt
+          return 0
+        fi
+      else
+        count=0
+      fi
+    else
+      count=0
+    fi
+    sleep 5
+  done
+  echo "Registro o ruta sin convergencia: $service" >&2
+  return 1
+}
 benchmark 1 1
 benchmark 1 8
 # Restore the original scale if a measurement fails.
@@ -106,6 +134,7 @@ for attempt in $(seq 1 "$scale_attempts"); do
   sleep 5
 done
 test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "2/2"
+registry_converged analytics-service 2 /api/analytics/resumen
 docker service ps edubio_analytics-service | tee artifacts/analytics-replicas.txt
 if [ "${EP3_CLOUD:-false}" = true ]; then
   docker node ls | tee artifacts/cloud-nodes.txt
@@ -125,6 +154,7 @@ for attempt in $(seq 1 "$scale_attempts"); do
   sleep 5
 done
 test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1"
+registry_converged analytics-service 1 /api/analytics/resumen
 trap - EXIT
 # Second independent scenario: read-only academic catalogue, no mutation or
 # parallel scale of both services. Keep resource consumption bounded.
@@ -138,6 +168,7 @@ for attempt in $(seq 1 "$scale_attempts"); do
   sleep 5
 done
 test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "2/2"
+registry_converged academic-service 2 /api/ofertas
 docker service ps edubio_academic-service | tee artifacts/academic-replicas.txt
 if [ "${EP3_CLOUD:-false}" = true ]; then
   test "$(docker service ps --filter desired-state=running --format '{{.Node}}' edubio_academic-service | sort -u | wc -l)" -eq 2
@@ -153,6 +184,7 @@ for attempt in $(seq 1 "$scale_attempts"); do
   sleep 5
 done
 test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "1/1"
+registry_converged academic-service 1 /api/ofertas
 trap - EXIT
 unset BENCH_TOKEN BENCH_ROUTE
 docker stack services edubio

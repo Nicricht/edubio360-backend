@@ -117,7 +117,7 @@ jobs:
           echo "DEPLOY_STARTED=$(date +%s)" >> "$GITHUB_ENV"
           bash scripts/ep3/swarm-deploy.sh
       - name: Salud y escalamiento de servicios
-        timeout-minutes: 22
+        timeout-minutes: 30
         run: |
           set -o pipefail
           bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt
