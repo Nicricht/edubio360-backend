@@ -54,6 +54,21 @@ class AuthControllerTest {
     }
 
     @Test
+    void registraYActualizaPerfilReal() throws Exception {
+        var perfil = new cl.edubio360.auth.dto.ProfileData("12345678-5", "Ana", "Prueba", "Biobío", "Concepción", "Dirección de prueba");
+        var response = new UserResponse(1L, "user@example.test", "STUDENT", true, perfil);
+        when(service.registrar(eq("user@example.test"), anyString(), eq(perfil))).thenReturn(response);
+        mvc.perform(post("/api/auth/register").contentType("application/json")
+                .content("{\"email\":\"user@example.test\",\"password\":\"sample-value-123\",\"perfil\":{\"run\":\"12345678-5\",\"nombre\":\"Ana\",\"apellidos\":\"Prueba\",\"region\":\"Biobío\",\"comuna\":\"Concepción\",\"direccion\":\"Dirección de prueba\"}}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.perfil.nombre").value("Ana"));
+        when(service.actualizarPerfil("user@example.test", perfil)).thenReturn(response);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/auth/me")
+                .header("X-User-Email", "user@example.test").contentType("application/json")
+                .content("{\"run\":\"12345678-5\",\"nombre\":\"Ana\",\"apellidos\":\"Prueba\",\"region\":\"Biobío\",\"comuna\":\"Concepción\",\"direccion\":\"Dirección de prueba\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.perfil.nombre").value("Ana"));
+    }
+
+    @Test
     void rechazaPostFueraDeApiSinTokenCsrf() throws Exception {
         mvc.perform(post("/internal/maintenance"))
                 .andExpect(status().isForbidden());

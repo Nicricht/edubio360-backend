@@ -2,6 +2,7 @@ package cl.edubio360.auth.service;
 
 import cl.edubio360.auth.dto.AuthRequests.LoginResponse;
 import cl.edubio360.auth.dto.UserRequest;
+import cl.edubio360.auth.dto.ProfileData;
 import cl.edubio360.auth.dto.UserResponse;
 import cl.edubio360.auth.model.UserEntity;
 import cl.edubio360.auth.repository.UserRepository;
@@ -37,7 +38,11 @@ public class UserService {
     public UserResponse crear(UserRequest request) {
         String email = normalize(request.email());
         ensureUnique(email, null);
+        if (request.password() == null || request.password().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Contraseña requerida");
+        }
         UserEntity user = new UserEntity(email, passwordEncoder.encode(request.password()), request.role());
+        user.actualizarPerfil(request.perfil());
         if (!request.active()) {
             user.actualizar(email, passwordEncoder.encode(request.password()), request.role(), false);
         }
@@ -49,7 +54,8 @@ public class UserService {
         UserEntity user = get(id);
         String email = normalize(request.email());
         ensureUnique(email, id);
-        user.actualizar(email, passwordEncoder.encode(request.password()), request.role(), request.active());
+        user.actualizar(email, request.password() == null ? user.getPasswordHash() : passwordEncoder.encode(request.password()), request.role(), request.active());
+        user.actualizarPerfil(request.perfil());
         return toResponse(user);
     }
 
@@ -60,10 +66,16 @@ public class UserService {
 
     @Transactional
     public UserResponse registrar(String email, String password) {
+        return registrar(email, password, null);
+    }
+
+    @Transactional
+    public UserResponse registrar(String email, String password, ProfileData perfil) {
         String normalized = normalize(email);
         ensureUnique(normalized, null);
-        UserEntity user = users.save(new UserEntity(normalized, passwordEncoder.encode(password), "STUDENT"));
-        return toResponse(user);
+        UserEntity user = new UserEntity(normalized, passwordEncoder.encode(password), "STUDENT");
+        user.actualizarPerfil(perfil);
+        return toResponse(users.save(user));
     }
 
     public LoginResponse login(String email, String password) {
@@ -81,6 +93,17 @@ public class UserService {
         if (!user.isActive()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida");
         }
+        return toResponse(user);
+    }
+
+    @Transactional
+    public UserResponse actualizarPerfil(String email, ProfileData perfil) {
+        UserEntity user = users.findByEmailIgnoreCase(normalize(email))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida"));
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida");
+        }
+        user.actualizarPerfil(perfil);
         return toResponse(user);
     }
 
@@ -102,6 +125,6 @@ public class UserService {
     }
 
     private UserResponse toResponse(UserEntity user) {
-        return new UserResponse(user.getId(), user.getEmail(), user.getPrimaryRole(), user.isActive());
+        return new UserResponse(user.getId(), user.getEmail(), user.getPrimaryRole(), user.isActive(), user.getPerfil());
     }
 }

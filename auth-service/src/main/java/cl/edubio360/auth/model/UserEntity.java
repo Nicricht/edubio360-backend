@@ -23,6 +23,19 @@ public class UserEntity {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<UserRole> roles = new ArrayList<>();
 
+    @Column(length = 20)
+    private String run;
+    @Column(length = 50)
+    private String nombre;
+    @Column(length = 100)
+    private String apellidos;
+    @Column(length = 100)
+    private String region;
+    @Column(length = 120)
+    private String comuna;
+    @Column(length = 300)
+    private String direccion;
+
     protected UserEntity() {}
 
     public UserEntity(String email, String passwordHash, String role) {
@@ -47,6 +60,20 @@ public class UserEntity {
     public void replaceRoles(List<String> nuevas) {
         roles.clear();
         if (nuevas != null) nuevas.forEach(this::addRole);
+    }
+
+    public void actualizarPerfil(cl.edubio360.auth.dto.ProfileData perfil) {
+        if (perfil == null) return;
+        run = perfil.run();
+        nombre = perfil.nombre();
+        apellidos = perfil.apellidos();
+        region = perfil.region();
+        comuna = perfil.comuna();
+        direccion = perfil.direccion();
+    }
+
+    public cl.edubio360.auth.dto.ProfileData getPerfil() {
+        return new cl.edubio360.auth.dto.ProfileData(run, nombre, apellidos, region, comuna, direccion);
     }
 
     public Long getId() { return id; }
