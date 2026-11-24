@@ -9,6 +9,16 @@
     "Ami": {
       "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
       "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    },
+    "ExistingRoleArn": {
+      "Type": "String",
+      "Default": "",
+      "Description": "ARN of existing authorized Lambda execution role, e.g. Academy LabRole. Empty creates a dedicated role."
+    },
+    "ExistingInstanceProfile": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Existing EC2 instance profile name, e.g. LabInstanceProfile. Empty creates dedicated profile."
     }
   },
   "Resources": {
@@ -316,7 +326,8 @@
             }
           }
         ]
-      }
+      },
+      "Condition": "CreateLambdaRole"
     },
     "ReceiptFunction": {
       "Type": "AWS::Lambda::Function",
@@ -324,9 +335,17 @@
         "Runtime": "python3.12",
         "Handler": "index.handler",
         "Role": {
-          "Fn::GetAtt": [
-            "LambdaRole",
-            "Arn"
+          "Fn::If": [
+            "CreateLambdaRole",
+            {
+              "Fn::GetAtt": [
+                "LambdaRole",
+                "Arn"
+              ]
+            },
+            {
+              "Ref": "ExistingRoleArn"
+            }
           ]
         },
         "Timeout": 25,
@@ -424,7 +443,8 @@
             }
           }
         ]
-      }
+      },
+      "Condition": "CreateNodeRole"
     },
     "NodeProfile": {
       "Type": "AWS::IAM::InstanceProfile",
@@ -434,7 +454,8 @@
             "Ref": "NodeRole"
           }
         ]
-      }
+      },
+      "Condition": "CreateNodeRole"
     },
     "Manager": {
       "Type": "AWS::EC2::Instance",
@@ -454,7 +475,15 @@
           }
         ],
         "IamInstanceProfile": {
-          "Ref": "NodeProfile"
+          "Fn::If": [
+            "CreateNodeRole",
+            {
+              "Ref": "NodeProfile"
+            },
+            {
+              "Ref": "ExistingInstanceProfile"
+            }
+          ]
         },
         "MetadataOptions": {
           "HttpTokens": "required",
@@ -501,7 +530,15 @@
           }
         ],
         "IamInstanceProfile": {
-          "Ref": "NodeProfile"
+          "Fn::If": [
+            "CreateNodeRole",
+            {
+              "Ref": "NodeProfile"
+            },
+            {
+              "Ref": "ExistingInstanceProfile"
+            }
+          ]
         },
         "MetadataOptions": {
           "HttpTokens": "required",
@@ -852,6 +889,24 @@
           "ApiEndpoint"
         ]
       }
+    }
+  },
+  "Conditions": {
+    "CreateLambdaRole": {
+      "Fn::Equals": [
+        {
+          "Ref": "ExistingRoleArn"
+        },
+        ""
+      ]
+    },
+    "CreateNodeRole": {
+      "Fn::Equals": [
+        {
+          "Ref": "ExistingInstanceProfile"
+        },
+        ""
+      ]
     }
   }
 }
