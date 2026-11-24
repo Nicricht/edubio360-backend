@@ -2,7 +2,7 @@
 
 ## Entrega EP3: Ingeniería DevOps y Java Cloud
 Rama de trabajo: `ep3-devops-cloud`. Fullstack `nico` permanece congelada.
-[Índice de entrega por indicador y evidencias](docs/EP3_DEVOPS_JAVA_ENTREGA.md) · [Aislamiento AWS](docs/EP3_DEVOPS_CLOUD_AISLAMIENTO.md).
+[Evidencias de observabilidad](observabilidad.md) · [Índice de entrega por indicador y evidencias](docs/EP3_DEVOPS_JAVA_ENTREGA.md) · [Aislamiento AWS](docs/EP3_DEVOPS_CLOUD_AISLAMIENTO.md).
 Los registros EP2 siguientes son históricos, no describen el estado actual de EP3.
 
 ## EP3 JVY0101 — Integración y despliegue de soluciones cloud

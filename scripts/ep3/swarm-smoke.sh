@@ -103,21 +103,7 @@ test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Re
 docker service ps edubio_analytics-service | tee artifacts/analytics-replicas.txt
 if [ "${EP3_CLOUD:-false}" = true ]; then
   docker node ls | tee artifacts/cloud-nodes.txt
-  test "$(docker node ls --format '{{.Status}}' | grep -c '^Ready $(seq 1 15); do
-  curl -fsS --retry 2 --retry-all-errors --retry-max-time 30 "$BASE_URL/openapi/analytics" >/dev/null
-done
-benchmark 2 1
-benchmark 2 8
-unset BENCH_TOKEN
-docker service scale --detach=true edubio_analytics-service=1
-for attempt in $(seq 1 "$scale_attempts"); do
-  if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
-  sleep 5
-done
-test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1"
-trap - EXIT
-docker stack services edubio
-)" -eq 2
+  test "$(docker node ls --format '{{.Status}}' | grep -c '^Ready$')" -eq 2
   test "$(docker node ls --filter role=manager -q | wc -l)" -eq 1
   test "$(docker node ls --filter role=worker -q | wc -l)" -eq 1
   test "$(docker service ps --filter desired-state=running --format '{{.Node}}' edubio_analytics-service | sort -u | wc -l)" -eq 2
