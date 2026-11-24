@@ -19,12 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 0b6a7d9161d0bac7be5863091fe217ab11f9b37f
+          ref: 10b086fbbc215b65c8ea1496817ad9b85797c91e
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
+          ref: a5eb43cdcb2c92cc19c3e6d235b58dcdf2751378
           path: frontend-source
           persist-credentials: false
       - name: Entorno desechable sin AWS ni observabilidad
@@ -163,6 +163,86 @@ jobs:
           if not all(any(r.get("file")==f for r in results) for f in ("perfil-estudiante.png","panel-orientador.png","panel-admin.png")):raise SystemExit("Faltan capturas esenciales de roles")
           PY
           docker run --rm --network host -e CAPTURE_PASS -v "$PWD/capturas:/evidence" -v /tmp/captura-roles.py:/tmp/captura-roles.py:ro mcr.microsoft.com/playwright/python:v1.56.0-noble sh -c 'pip install --quiet playwright==1.56.0 && python /tmp/captura-roles.py'
+      - name: Validar persistencia por rol, recuperación HTTP 503 y CRUD visual
+        run: |
+          cat > /tmp/validacion-dsy.py <<'PY'
+          import os,json
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright,expect
+          out=Path("/evidence")
+          base="http://127.0.0.1:8088"
+          with sync_playwright() as p:
+              browser=p.chromium.launch(args=["--no-sandbox"])
+              for role in ("estudiante","orientador","admin"):
+                  page=browser.new_page(viewport={"width":1440,"height":1000})
+                  page.goto(base+"/login")
+                  page.get_by_label("Correo electrónico").fill(role+".evidencia@example.test")
+                  page.get_by_label("Contraseña",exact=True).fill(os.environ["CAPTURE_PASS"])
+                  page.get_by_role("button",name="Ingresar",exact=True).click()
+                  page.wait_for_url(base+"/"+role,timeout=30000)
+                  expect(page.locator("main h1").first).to_be_visible(timeout=30000)
+                  page.reload()
+                  expect(page.locator("main h1").first).to_be_visible(timeout=30000)
+                  assert page.url==base+"/"+role
+                  page.screenshot(path=str(out/("recarga-"+role+".png")))
+                  if role=="estudiante":
+                      calls=[]
+                      def temporal(route):
+                          calls.append(1)
+                          if len(calls)==1:route.fulfill(status=503,content_type="application/json",body='{"message":"Interrupción temporal de prueba"}')
+                          else:route.continue_()
+                      page.route("**/api/auth/me",temporal)
+                      page.reload()
+                      expect(page.get_by_text("Verificando sesión...")).to_be_visible(timeout=4000)
+                      expect(page.locator("main h1").first).to_be_visible(timeout=20000)
+                      assert len(calls)>=2 and page.url==base+"/"+role
+                      page.screenshot(path=str(out/"recuperacion-503.png"))
+                      page.unroute("**/api/auth/me",temporal)
+                  if role=="admin":
+                      page.goto(base+"/admin/ofertas/nueva")
+                      expect(page.locator("#sedeId option").nth(1)).to_be_attached(timeout=30000)
+                      name="Oferta temporal evidencia DSY1104"
+                      for label,val in [("Carrera",name),("Área","Tecnología"),("Modalidad","Presencial"),("Jornada","Diurno"),("Nivel","Profesional"),("Duración (semestres)","8"),("Matrícula (CLP)","100000"),("Arancel (CLP)","1000000"),("Cupos disponibles","20"),("Umbral de cupos críticos","5"),("Descripción","Oferta temporal para comprobar CRUD en un entorno aislado.")]:
+                          page.get_by_label(label,exact=True).fill(val)
+                      page.locator("#sedeId").select_option(index=1)
+                      page.screenshot(path=str(out/"crud-01-crear.png"))
+                      with page.expect_response(lambda r:r.request.method=="POST" and r.url.endswith("/api/ofertas"),timeout=30000) as created:
+                          page.get_by_role("button",name="Guardar oferta").click()
+                      assert created.value.status==201
+                      offer=created.value.json()["id"]
+                      row=page.get_by_test_id("admin-oferta-row").filter(has_text=name)
+                      expect(row).to_be_visible(timeout=30000)
+                      page.screenshot(path=str(out/"crud-02-leer.png"))
+                      row.get_by_role("link",name="Editar "+name).click()
+                      page.get_by_label("Arancel (CLP)",exact=True).fill("1200000")
+                      with page.expect_response(lambda r:r.request.method=="PUT" and r.url.endswith("/api/ofertas/"+str(offer)),timeout=30000) as updated:
+                          page.get_by_role("button",name="Guardar cambios").click()
+                      assert updated.value.status==200
+                      expect(row).to_be_visible(timeout=30000)
+                      assert float(updated.value.json()["arancel"])==1200000
+                      page.screenshot(path=str(out/"crud-03-actualizar.png"))
+                      row.get_by_role("button",name="Eliminar "+name).click()
+                      page.screenshot(path=str(out/"crud-04-confirmar-eliminacion.png"))
+                      with page.expect_response(lambda r:r.request.method=="DELETE" and r.url.endswith("/api/ofertas/"+str(offer)),timeout=30000) as deleted:
+                          page.get_by_role("button",name="Confirmar eliminación").click()
+                      assert deleted.value.status==204
+                      expect(row).to_have_count(0,timeout=30000)
+                      assert page.request.get(base+"/api/ofertas/"+str(offer)).status==404
+                      page.screenshot(path=str(out/"crud-05-eliminado.png"))
+                  page.close()
+              browser.close()
+          (out/"validacion-sesion-crud.json").write_text(json.dumps({"recarga":["estudiante","orientador","admin"],"recuperacion_503":"interrupción simulada por Playwright, revalidación real posterior","crud":"POST 201, PUT 200, DELETE 204, GET posterior 404","entorno":"aislado"},ensure_ascii=False,indent=2))
+          PY
+          docker run --rm --network host -e CAPTURE_PASS -v "$PWD/capturas:/evidence" -v /tmp/validacion-dsy.py:/tmp/validacion-dsy.py:ro mcr.microsoft.com/playwright/python:v1.56.0-noble sh -c 'pip install --quiet playwright==1.56.0 && python /tmp/validacion-dsy.py'
+      - name: Empaquetar las fuentes exactas de la validación
+        if: always()
+        run: |
+          mkdir -p capturas/fuentes
+          git archive --format=zip --prefix=edubio360-backend/ -o "$PWD/capturas/fuentes/edubio360-backend.zip" HEAD
+          git -C frontend-source archive --format=zip --prefix=edubio360-frontend/ -o "$PWD/capturas/fuentes/edubio360-frontend.zip" HEAD
+          git rev-parse HEAD > capturas/fuentes/backend-commit.txt
+          git -C frontend-source rev-parse HEAD > capturas/fuentes/frontend-commit.txt
+          (cd capturas/fuentes && sha256sum *.zip > SHA256SUMS.txt)
       - name: Diagnóstico de arranque
         if: failure()
         run: |
