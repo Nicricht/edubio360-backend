@@ -11,7 +11,23 @@ concurrency:
   group: ep3-v2-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
 jobs:
+  scope:
+    name: Clasificar cambios
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determinar alcance
+        id: scope
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: python3 scripts/ci-scope.py >> "$GITHUB_OUTPUT"
   verify:
+    needs: scope
+    if: needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

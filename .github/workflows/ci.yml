@@ -16,8 +16,26 @@ on:
       - main
       - develop
 
+  workflow_dispatch:
+
 jobs:
+  scope:
+    name: Clasificar cambios
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determinar alcance
+        id: scope
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: python3 scripts/ci-scope.py >> "$GITHUB_OUTPUT"
   verify:
+    needs: scope
+    if: needs.scope.outputs.mode != 'docs'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -124,8 +142,8 @@ jobs:
   image-build:
     name: Build non-root image tagged by commit
     runs-on: ubuntu-latest
-    needs: [verify, security]
-    if: github.event_name == 'push'
+    needs: [scope, verify, security]
+    if: needs.scope.outputs.mode == 'full' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     env:
       IMAGE_TAG: ${{ github.sha }}
     steps:
@@ -174,8 +192,8 @@ jobs:
   deploy-smoke:
     name: Deploy and smoke test in simulated cloud runner
     runs-on: ubuntu-latest
-    needs: [verify, security, image-build]
-    if: github.event_name == 'push'
+    needs: [scope, verify, security, image-build]
+    if: needs.scope.outputs.mode == 'full' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     env:
       IMAGE_TAG: ${{ github.sha }}
     steps:
