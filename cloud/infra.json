@@ -4,7 +4,12 @@
   "Parameters": {
     "InstanceType": {
       "Type": "String",
-      "Default": "t3.large"
+      "Default": "t3.large",
+      "AllowedValues": [
+        "t3.large",
+        "t3.xlarge"
+      ],
+      "Description": "Two instances; standard CPU credits avoid surplus charges. Review remaining Academy credits before provisioning."
     },
     "Ami": {
       "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
@@ -515,8 +520,15 @@
           {
             "Key": "Name",
             "Value": "edubio-ep3-manager"
+          },
+          {
+            "Key": "Project",
+            "Value": "EduBio360-EP3"
           }
-        ]
+        ],
+        "CreditSpecification": {
+          "CPUCredits": "standard"
+        }
       },
       "DependsOn": "Route"
     },
@@ -570,8 +582,15 @@
           {
             "Key": "Name",
             "Value": "edubio-ep3-worker"
+          },
+          {
+            "Key": "Project",
+            "Value": "EduBio360-EP3"
           }
-        ]
+        ],
+        "CreditSpecification": {
+          "CPUCredits": "standard"
+        }
       },
       "DependsOn": "Route"
     },
