@@ -1,0 +1,38 @@
+name: Empaquetar entrega DSY1104
+on:
+  push:
+    branches: [entrega-dsy1104-20261124]
+    paths: ['.github/workflows/entrega-dsy1104.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a58b96c113461df0041d509ea9b8f349a1c80986
+          persist-credentials: false
+          path: backend
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: ea95b115286647fc10fadede2e3798509c1b1207
+          persist-credentials: false
+          path: frontend
+      - name: Comprimir fuentes versionadas
+        run: |
+          mkdir entrega
+          git -C backend archive --format=zip --prefix=edubio360-backend/ -o "$PWD/entrega/edubio360-backend.zip" HEAD
+          git -C frontend archive --format=zip --prefix=edubio360-frontend/ -o "$PWD/entrega/edubio360-frontend.zip" HEAD
+          unzip -tq entrega/edubio360-backend.zip
+          unzip -tq entrega/edubio360-frontend.zip
+          git -C backend rev-parse HEAD > entrega/backend-commit.txt
+          git -C frontend rev-parse HEAD > entrega/frontend-commit.txt
+          (cd entrega && sha256sum *.zip > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsy1104-fuentes
+          path: entrega/
+          if-no-files-found: error
