@@ -351,7 +351,19 @@ Detener:
 docker compose down
 ```
 
-Eliminar también el volumen MySQL:
+En Windows PowerShell, desde la raíz, se puede iniciar sin reconstruir imágenes ya existentes:
+
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d --no-build
+docker compose ps
+```
+
+RabbitMQ usa un volumen Docker nombrado (`rabbit_data`) y un nombre de host estable. El inicio corrige el propietario y los permisos de `.erlang.cookie` antes de delegar al entrypoint oficial, que inicia el broker con su usuario sin privilegios. El chequeo de salud exige que RabbitMQ esté ejecutándose. La prueba CI reproduce una cookie con propietario incorrecto y verifica su reparación.
+
+Si actualizas desde una versión anterior que no tenía volumen nombrado, Compose puede crear un volumen RabbitMQ nuevo; el volumen anónimo anterior no se borra automáticamente. Si contiene mensajes que deban conservarse, respáldalos y migra los datos antes de recrear el contenedor. No elimines los volúmenes para solucionar un error de permisos.
+
+Eliminar todos los volúmenes declarados (incluidos MySQL y RabbitMQ) **solo para reiniciar un entorno descartable**:
 
 ```bash
 docker compose down -v

@@ -13,6 +13,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  echo "[CI] Reproduciendo cookie RabbitMQ con propietario incorrecto..."
+  docker compose run --rm --no-deps --user root --entrypoint /bin/sh rabbitmq -ec 'umask 077; head -c 32 /dev/urandom | base64 | tr -d "\n" > /var/lib/rabbitmq/.erlang.cookie; chown root:root /var/lib/rabbitmq/.erlang.cookie; chmod 600 /var/lib/rabbitmq/.erlang.cookie'
+  docker compose up -d --no-build --wait --wait-timeout 300 rabbitmq
+  docker compose exec -T rabbitmq sh -ec 'test "$(stat -c %U:%G:%a /var/lib/rabbitmq/.erlang.cookie)" = rabbitmq:rabbitmq:400'
+  docker compose exec -T rabbitmq rabbitmq-diagnostics -q check_running
+  echo "[OK] RabbitMQ recuperado sin borrar datos" | tee -a artifacts/deployment-trace.txt
+fi
+
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
 # Reintenta únicamente construcción, sin relajar pruebas ni escaneo.
 for build_attempt in 1 2 3; do

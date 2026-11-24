@@ -34,6 +34,17 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: edubio-rabbitmq
+    hostname: rabbitmq
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >-
+        if [ -e /var/lib/rabbitmq/.erlang.cookie ]; then chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie; chmod 400 /var/lib/rabbitmq/.erlang.cookie; fi; exec /usr/local/bin/docker-entrypoint.sh "$@"
+      - --
+    command: ["rabbitmq-server"]
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-edubio}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-edubio123}
@@ -41,7 +52,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -352,3 +363,4 @@ services:
 
 volumes:
   mysql_data:
+  rabbit_data:

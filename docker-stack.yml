@@ -47,6 +47,9 @@
     },
     "rabbitmq": {
       "image": "rabbitmq:3.13-management",
+      "user": "0:0",
+      "entrypoint": ["/bin/sh","-ec","if [ -e /var/lib/rabbitmq/.erlang.cookie ]; then chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie; chmod 400 /var/lib/rabbitmq/.erlang.cookie; fi; exec /usr/local/bin/docker-entrypoint.sh \"$@\"","--"],
+      "command": ["rabbitmq-server"],
       "environment": {
         "RABBITMQ_DEFAULT_USER": "edubio",
         "RABBITMQ_DEFAULT_PASS": "${RABBITMQ_PASSWORD}"
@@ -63,7 +66,7 @@
           "CMD",
           "rabbitmq-diagnostics",
           "-q",
-          "ping"
+          "check_running"
         ],
         "interval": "15s",
         "timeout": "5s",
