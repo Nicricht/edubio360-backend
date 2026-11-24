@@ -62,7 +62,7 @@ jobs:
   swarm:
     needs: verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       IMAGE_PREFIX: edubio360
       EP3_MONITORING: 'true'
@@ -83,6 +83,21 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
+      - name: Preparar Chromium reproducible
+        timeout-minutes: 18
+        run: |
+          set -euo pipefail
+          base=mcr.microsoft.com/playwright/python:v1.56.0-noble
+          for attempt in 1 2 3; do
+            if timeout 240s docker pull "$base"; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+          docker build --pull=false -t edubio360-browser:1.56.0 - <<'DOCKERFILE'
+          FROM mcr.microsoft.com/playwright/python:v1.56.0-noble
+          RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
+          DOCKERFILE
+          docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
       - name: Construir todas las imágenes
         run: |
           bash scripts/ep3/build-images.sh
@@ -121,9 +136,14 @@ jobs:
       - name: Prueba Fullstack con Chromium
         timeout-minutes: 20
         run: |
-          python3 -m pip install playwright==1.56.0
-          python3 -m playwright install --with-deps chromium
-          FRONTEND_URL=http://127.0.0.1:8088 python3 scripts/ep3/browser-smoke.py
+          set -euo pipefail
+          mkdir -p artifacts
+          export FRONTEND_URL=http://127.0.0.1:8088
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e FRONTEND_URL \
+            -v "$PWD/scripts/ep3/browser-smoke.py:/work/browser-smoke.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/browser-smoke.py
       - name: Guardar diagnóstico
         if: always()
         run: |
@@ -143,7 +163,7 @@ jobs:
     needs: [verify, swarm]
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.EP3_AWS_ENABLED == 'true' && (vars.EP3_AWS_AUTH_MODE != 'academy' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: read
       id-token: write
@@ -168,6 +188,21 @@ jobs:
         with:
           name: ep3-ci-metrics
           path: artifacts
+      - name: Preparar Chromium reproducible
+        timeout-minutes: 18
+        run: |
+          set -euo pipefail
+          base=mcr.microsoft.com/playwright/python:v1.56.0-noble
+          for attempt in 1 2 3; do
+            if timeout 240s docker pull "$base"; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+          docker build --pull=false -t edubio360-browser:1.56.0 - <<'DOCKERFILE'
+          FROM mcr.microsoft.com/playwright/python:v1.56.0-noble
+          RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
+          DOCKERFILE
+          docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
       - name: Bloqueo de seguridad antes de aprovisionar AWS
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -220,10 +255,16 @@ jobs:
       - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo
         run: bash scripts/ep3/deploy-aws.sh
       - name: Prueba Fullstack en la URL HTTPS de AWS
+        timeout-minutes: 20
         run: |
-          python3 -m pip install playwright==1.56.0
-          python3 -m playwright install --with-deps chromium
-          FRONTEND_URL="$(jq -er '.[] | select(.OutputKey=="ApiUrl") | .OutputValue' artifacts/cloud-outputs.json)" python3 scripts/ep3/browser-smoke.py
+          set -euo pipefail
+          mkdir -p artifacts
+          export FRONTEND_URL="$(jq -er '.[] | select(.OutputKey=="ApiUrl") | .OutputValue' artifacts/cloud-outputs.json)"
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e FRONTEND_URL \
+            -v "$PWD/scripts/ep3/browser-smoke.py:/work/browser-smoke.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/browser-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
