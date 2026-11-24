@@ -28,12 +28,17 @@ echo "[EP02] Validando las colecciones históricas en el entorno descartable de 
 export EP3_STRICT_ACCESS=false
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
 # Reintenta únicamente construcción, sin relajar pruebas ni escaneo.
-for build_attempt in 1 2 3; do
-  if COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all discovery-server && \
-     COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all; then break; fi
-  if [ "$build_attempt" = 3 ]; then exit 1; fi
-  sleep "$((build_attempt * 30))"
-done
+if [ -n "${PRECOMPILED_CONTEXT:-}" ]; then
+  bash scripts/ep3/verified-jars.sh verify "$PRECOMPILED_CONTEXT"
+  IMAGE_PREFIX=edubio360 bash scripts/ep3/build-images.sh
+else
+  for build_attempt in 1 2 3; do
+    if COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all discovery-server && \
+       COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all; then break; fi
+    if [ "$build_attempt" = 3 ]; then exit 1; fi
+    sleep "$((build_attempt * 30))"
+  done
+fi
 docker compose up -d --no-build \
   mysql rabbitmq discovery-server \
   auth-service academic-service guidance-service \

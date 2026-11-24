@@ -64,6 +64,15 @@ jobs:
           path: |
             **/target/surefire-reports/**
             **/target/site/jacoco/**
+      - name: Empaquetar JAR verificados del commit
+        run: bash scripts/ep3/verified-jars.sh prepare "$RUNNER_TEMP/verified-jars"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ep3-verified-jars
+          path: ${{ runner.temp }}/verified-jars/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 2
   swarm:
     needs: verify
     runs-on: ubuntu-24.04
@@ -89,6 +98,12 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
           path: frontend-source
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep3-verified-jars
+          path: ${{ runner.temp }}/verified-jars
+      - name: Verificar integridad y commit de JAR
+        run: bash scripts/ep3/verified-jars.sh verify "$RUNNER_TEMP/verified-jars"
       - name: Preparar Chromium reproducible
         timeout-minutes: 18
         run: |
@@ -106,7 +121,7 @@ jobs:
           docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
       - name: Construir todas las imágenes
         run: |
-          bash scripts/ep3/build-images.sh
+          PRECOMPILED_CONTEXT="$RUNNER_TEMP/verified-jars" bash scripts/ep3/build-images.sh
           docker build -t "$IMAGE_PREFIX/frontend:$IMAGE_TAG" frontend-source
       - name: Inicializar y desplegar Swarm
         timeout-minutes: 6
@@ -211,6 +226,12 @@ jobs:
         with:
           name: ep3-ci-metrics
           path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep3-verified-jars
+          path: ${{ runner.temp }}/verified-jars
+      - name: Verificar integridad y commit de JAR
+        run: bash scripts/ep3/verified-jars.sh verify "$RUNNER_TEMP/verified-jars"
       - name: Preparar Chromium reproducible
         timeout-minutes: 18
         run: |
@@ -285,7 +306,7 @@ jobs:
           registry="$account.dkr.ecr.$AWS_REGION.amazonaws.com"
           aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
           echo "IMAGE_PREFIX=$registry/edubio-devops-ep3" >> "$GITHUB_ENV"
-          IMAGE_PREFIX="$registry/edubio-devops-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
+          PRECOMPILED_CONTEXT="$RUNNER_TEMP/verified-jars" IMAGE_PREFIX="$registry/edubio-devops-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
           docker build -t "$registry/edubio-devops-ep3/frontend:$IMAGE_TAG" frontend-source
           docker push "$registry/edubio-devops-ep3/frontend:$IMAGE_TAG"
       - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo

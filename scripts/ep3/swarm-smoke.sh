@@ -111,6 +111,9 @@ registry_converged() {
           printf '%s: %s replicas registradas y accesibles\n' "$service" "$expected" | tee -a artifacts/registry-convergence.txt
           return 0
         fi
+        # Six successful probes across 10 seconds span the 5s registry and LB cache intervals.
+        sleep 2
+        continue
       else
         count=0
       fi

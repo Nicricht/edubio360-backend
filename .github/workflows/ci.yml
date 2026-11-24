@@ -80,6 +80,16 @@ jobs:
             **/target/cucumber/**
             **/target/surefire-reports/**
 
+      - name: Empaquetar JAR verificados del commit
+        run: bash scripts/ep3/verified-jars.sh prepare "$RUNNER_TEMP/verified-jars"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devsecops-verified-jars
+          path: ${{ runner.temp }}/verified-jars/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 2
+
   security:
     name: Snyk dependencies and code
     needs: verify
@@ -149,11 +159,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: devsecops-verified-jars
+          path: ${{ runner.temp }}/verified-jars
+      - name: Verificar integridad y commit de JAR
+        run: bash scripts/ep3/verified-jars.sh verify "$RUNNER_TEMP/verified-jars"
       - name: Docker multi-stage build - auth-service
         run: |
-          docker build --file Dockerfile.service --build-arg MODULE=auth-service \
+          docker build --file Dockerfile.service --build-arg PACKAGE_STAGE=build-precompiled --build-arg MODULE=auth-service \
             --build-arg HEALTH_PORT=8081 \
-            --tag "edubio360/auth-service:${IMAGE_TAG}" .
+            --tag "edubio360/auth-service:${IMAGE_TAG}" "$RUNNER_TEMP/verified-jars"
           runtime_user="$(docker image inspect --format '{{.Config.User}}' "edubio360/auth-service:${IMAGE_TAG}")"
           test -n "$runtime_user" && test "$runtime_user" != "root" && test "$runtime_user" != "0"
           mkdir -p artifacts
@@ -199,9 +215,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: devsecops-verified-jars
+          path: ${{ runner.temp }}/verified-jars
+      - name: Verificar integridad y commit de JAR
+        run: bash scripts/ep3/verified-jars.sh verify "$RUNNER_TEMP/verified-jars"
       - name: Compose deploy, health verification and end-to-end smoke tests
         env:
           MYSQL_ROOT_PASSWORD: ci-nondefault-mysql-root-2026
+          PRECOMPILED_CONTEXT: ${{ runner.temp }}/verified-jars
         run: bash scripts/smoke-mysql.sh
 
       - name: Save simulated deployment logs and trace
