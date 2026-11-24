@@ -116,6 +116,16 @@ class UserServiceTest {
     }
 
     @Test
+    void sesionActualVerificaCuentaActiva() {
+        when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));
+        assertEquals("STUDENT", service.sesionActual("user@example.test").role());
+        user.actualizar("user@example.test", "hash", "STUDENT", false);
+        assertThrows(ResponseStatusException.class, () -> service.sesionActual("user@example.test"));
+        when(users.findByEmailIgnoreCase("missing@example.test")).thenReturn(Optional.empty());
+        assertThrows(ResponseStatusException.class, () -> service.sesionActual("missing@example.test"));
+    }
+
+    @Test
     void rechazaLoginDeUsuarioInactivoYCorreoInexistente() {
         user.actualizar("user@example.test", "hash", "STUDENT", false);
         when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));

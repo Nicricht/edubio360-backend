@@ -75,6 +75,15 @@ public class UserService {
         return new LoginResponse(jwtService.createToken(user), user.getEmail(), user.getPrimaryRole());
     }
 
+    public UserResponse sesionActual(String email) {
+        UserEntity user = users.findByEmailIgnoreCase(normalize(email))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida"));
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión inválida");
+        }
+        return toResponse(user);
+    }
+
     private UserEntity get(Long id) {
         return users.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
