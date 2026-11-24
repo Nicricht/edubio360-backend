@@ -22,6 +22,10 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   echo "[OK] RabbitMQ recuperado sin borrar datos" | tee -a artifacts/deployment-trace.txt
 fi
 
+echo "[EP02] Validando las colecciones históricas en el entorno descartable de CI..."
+# Las colecciones EP02 tienen expectativas anteriores a los permisos EP3.
+# La configuración normal sigue siendo estricta; al final se certifica también EP3.
+export EP3_STRICT_ACCESS=false
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
 # Reintenta únicamente construcción, sin relajar pruebas ni escaneo.
 for build_attempt in 1 2 3; do
@@ -235,4 +239,12 @@ docker compose exec -T analytics-service curl -fsS http://127.0.0.1:8085/actuato
 docker compose --profile scale exec -T analytics-replica curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null
 echo "[OK] Ambas instancias Analytics saludables y configuradas para Eureka"
 
-echo "[SUCCESS] Smoke MySQL + Postman original + Gateway JWT + carpetas aisladas completado."
+echo "[EP3] Restaurando configuración estricta predeterminada y verificando integración..."
+export EP3_STRICT_ACCESS=true
+docker compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 240 api-gateway
+wait_for "Gateway estricto" "http://localhost:8080/openapi/auth"
+assert_status 200 "http://localhost:8080/api/ofertas"
+assert_status 200 "http://localhost:8080/api/sedes"
+assert_status 401 "http://localhost:8080/api/usuarios"
+FLOW_COMPOSE=true bash scripts/ep3/flow.sh | tee artifacts/compose-fullstack-flow.txt
+echo "[SUCCESS] Smoke MySQL + Postman histórico + Gateway EP3 + tres roles completado."

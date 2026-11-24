@@ -36,7 +36,7 @@ Write-Host "   Estado final: $($confirmada.estado)"
 
 Start-Sleep -Seconds 2
 Write-Host "6. Revisando eventos consumidos por Notification Service"
-$notificaciones = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/notificaciones" -Headers $orientadorHeaders
+$notificaciones = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/notificaciones/mias" -Headers $studentHeaders
 $notificaciones | ConvertTo-Json -Depth 5
 
 Write-Host "Flujo mínimo completado correctamente."

@@ -339,7 +339,7 @@ Copiar variables de ejemplo:
 cp .env.example .env
 ```
 
-Levantar infraestructura y servicios:
+Levantar infraestructura y servicios (API Gateway con acceso público de solo lectura al catálogo y sedes; JWT y roles para las operaciones privadas):
 
 ```bash
 docker compose up --build
@@ -423,7 +423,7 @@ http://localhost:8080/swagger-ui/index.html
 En el desplegable «Select a definition», elegir Auth, Academic, Guidance, Notification, Analytics o Import.
 El Gateway expone las especificaciones JSON mediante `/openapi/auth`, `/openapi/academic`,
 `/openapi/guidance`, `/openapi/notification`, `/openapi/analytics` y `/openapi/import`.
-La documentación es pública; las operaciones de negocio bajo `/api/**` mantienen la validación JWT.
+La documentación y las consultas GET de ofertas y sedes son públicas; las operaciones privadas bajo `/api/**` requieren JWT y los roles correspondientes.
 Para utilizar «Try it out» en endpoints protegidos, aportar el token de autenticación.
 
 Además, cada microservicio conserva su Swagger individual:
@@ -484,7 +484,7 @@ registra una cuenta efímera de pruebas e inicia sesión automáticamente por
 La primera petición «Ruta protegida sin JWT» mantiene el 401 intencional.
 Para obtener, actualizar o borrar registros, primero ejecutar la solicitud «Crear» de ese servicio
 para que se establezca su variable `{servicio}Id`.
-Las cuentas efímeras son de **pruebas locales**; no utilizar esta colección para producción.
+Las cuentas efímeras son de **pruebas locales**; no utilizar esta colección para producción. La colección Gateway EP02 conserva el contrato histórico y se ejecuta con `EP3_STRICT_ACCESS=false` exclusivamente en CI descartable; después se vuelve a activar el modo estricto y se prueba el flujo completo de estudiante, orientador y administrador. El modo normal y el portable aplican `EP3_STRICT_ACCESS=true`.
 `gatewayUrl` apunta a `http://localhost:8080`; el token se obtiene automáticamente.
 La colección histórica `EduBio360-EP02.postman_collection.json` no se modifica y mantiene
 las pruebas independientes contra cada servicio. GitHub Actions ejecuta **ambas** colecciones

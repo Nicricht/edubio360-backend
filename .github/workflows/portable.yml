@@ -8,6 +8,8 @@ on:
       - 'Dockerfile.service'
       - 'docker-compose.yml'
       - 'scripts/ep3/build-images.sh'
+      - 'scripts/ep3/flow.sh'
+      - 'scripts/ep3/browser-smoke.py'
       - '.github/workflows/portable.yml'
 permissions:
   contents: read
@@ -23,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: ea95b115286647fc10fadede2e3798509c1b1207
+          ref: 5c8635058838139436471dc62bbd342950ca25e6
           path: frontend-source
       - uses: actions/setup-java@v4
         with:

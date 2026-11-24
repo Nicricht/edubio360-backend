@@ -38,6 +38,10 @@ with sync_playwright() as pw:
         assert response and response.ok, route
         expect(page.locator("main")).to_be_visible(timeout=30000)
         page.screenshot(path="artifacts/" + filename)
+    page.goto(base + "/carreras")
+    expect(page.locator(".ofertas-grid").first).to_be_visible(timeout=30000)
+    expect(page.locator(".ofertas-grid a").first).to_be_visible(timeout=30000)
+    page.screenshot(path="artifacts/08-catalogo.png", full_page=True)
     response = page.goto(base + "/swagger-ui/index.html")
     assert response and response.ok, "Swagger UI no disponible"
     expect(page.locator(".swagger-ui .opblock").first).to_be_visible(timeout=30000)

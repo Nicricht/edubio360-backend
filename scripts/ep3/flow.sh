@@ -3,6 +3,15 @@ set -euo pipefail
 base="${BASE_URL:-http://127.0.0.1:8080}"
 curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
+private_auth() {
+  if [ "${FLOW_COMPOSE:-false}" = true ]; then
+    docker compose exec -T auth-service curl "$@"
+  else
+    docker run --rm --network edubio_backend --entrypoint curl "$image" "$@"
+  fi
+}
+private_base=http://auth-service:8081
+if [ "${FLOW_COMPOSE:-false}" = true ]; then private_base=http://127.0.0.1:8081; fi
 suffix="$(date +%s)-$RANDOM"
 student="ep3-student-$suffix@example.test"
 teacher="ep3-teacher-$suffix@example.test"
@@ -14,14 +23,14 @@ login() {
 }
 curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$student" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/register" >/dev/null
 # El operador provisiona el primer administrador exclusivamente en la red privada.
-admin_id="$(docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$admin" --arg p "$pass" '{email:$e,password:$p,role:"ADMIN",active:true}')" http://auth-service:8081/api/usuarios | jq -er '.id')"
+admin_id="$(private_auth -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$admin" --arg p "$pass" '{email:$e,password:$p,role:"ADMIN",active:true}')" "$private_base/api/usuarios" | jq -er '.id')"
 teacher_id=""
 cleanup_privileged() {
   local code=$?
   trap - EXIT
   for account in "$teacher_id" "$admin_id"; do
     if [ -n "$account" ]; then
-      docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 -X DELETE "http://auth-service:8081/api/usuarios/$account" >/dev/null || echo "No se pudo eliminar cuenta temporal $account" >&2
+      private_auth -fsS --max-time 15 -X DELETE "$private_base/api/usuarios/$account" >/dev/null || echo "No se pudo eliminar cuenta temporal $account" >&2
     fi
   done
   exit "$code"

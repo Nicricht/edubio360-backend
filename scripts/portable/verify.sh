@@ -20,6 +20,7 @@ for service in auth academic guidance notification analytics import; do
 done
 curl -fsS --retry 12 --retry-all-errors --retry-delay 5 --retry-max-time 90 http://127.0.0.1:8088/api/ofertas | jq -e 'type=="array" and length>0'
 test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8088/api/usuarios)" = 401
+COMPOSE_FILE="$out/compose.json" FLOW_COMPOSE=true BASE_URL=http://127.0.0.1:8088 bash scripts/ep3/flow.sh | tee artifacts/portable-role-flow.txt
 # Browser runs on an internal-only network, without access to external services.
 docker network create --internal portable-browser-offline
 trap 'docker network disconnect portable-browser-offline "$("${compose[@]}" ps -q frontend)" 2>/dev/null || true; docker network rm portable-browser-offline 2>/dev/null || true; cleanup' EXIT
