@@ -26,7 +26,7 @@ def classify(paths):
 
 def mode(event, ref, before, after):
     # A release, PR, or explicit dispatch must always exercise the full gates.
-    if event != "push" or ref == "refs/heads/main":
+    if event != "push" or ref in {"refs/heads/main", "refs/heads/ep3-devops-cloud"}:
         return "full"
     if not re.fullmatch(r"[0-9a-f]{40}", before) or before == "0" * 40:
         return "full"

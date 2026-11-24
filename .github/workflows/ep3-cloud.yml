@@ -166,13 +166,20 @@ jobs:
           path: artifacts/
   cloud:
     needs: [verify, swarm]
-    if: github.ref == 'refs/heads/ep3-devops-cloud' && github.event_name == 'workflow_dispatch' && inputs.deploy_isolated_aws == true && vars.EP3_AWS_ENABLED == 'true'
+    if: >-
+      github.ref == 'refs/heads/ep3-devops-cloud' &&
+      vars.EP3_AWS_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.deploy_isolated_aws == true) ||
+       (github.event_name == 'push' && vars.EP3_DEVOPS_AUTO_DEPLOY == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
       id-token: write
     environment: ep3-aws
+    concurrency:
+      group: edubio-devops-ep3-aws
+      cancel-in-progress: false
     env:
       AWS_REGION: ${{ vars.EP3_AWS_REGION }}
       EP3_AWS_AUTH_MODE: ${{ vars.EP3_AWS_AUTH_MODE }}
@@ -208,6 +215,18 @@ jobs:
           RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
           DOCKERFILE
           docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
+          path: frontend-source
+      - name: Seguridad y calidad frontend antes de aprovisionar AWS
+        working-directory: frontend-source
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          npm run test:coverage
+          npm run build
       - name: Bloqueo de seguridad antes de aprovisionar AWS
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -249,11 +268,6 @@ jobs:
           test "$(aws sts get-caller-identity --query Account --output text)" = "$EP3_EXPECTED_AWS_ACCOUNT"
       - name: Provisionar VPC, EC2, ECR, SQS, Lambda, DynamoDB y API Gateway
         run: bash scripts/ep3/provision.sh
-      - uses: actions/checkout@v4
-        with:
-          repository: Nicricht/edubio360-frontend
-          ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
-          path: frontend-source
       - name: Construir y publicar imágenes en ECR
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"
