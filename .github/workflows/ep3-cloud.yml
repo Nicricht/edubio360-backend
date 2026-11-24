@@ -22,6 +22,9 @@ jobs:
           cache: maven
       - name: Pruebas Maven
         run: mvn -B -ntp clean verify
+      - name: Diagnóstico JaCoCo
+        if: always()
+        run: python3 -B scripts/ep3/coverage-diagnostics.py
       - name: Pruebas de integración de eventos y sintaxis
         run: |
           python3 -B -m unittest discover -s tests/ep3 -v
