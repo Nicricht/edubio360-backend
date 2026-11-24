@@ -1,0 +1,64 @@
+name: EduBio360 Portable
+on:
+  workflow_dispatch:
+  push:
+    branches: [nico]
+    paths:
+      - 'scripts/portable/**'
+      - '.github/workflows/portable.yml'
+permissions:
+  contents: read
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
+          path: frontend-source
+      - name: Construir paquete portable
+        run: bash scripts/portable/package.sh frontend-source EDUBIO360_PORTABLE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EDUBIO360_PORTABLE
+          path: EDUBIO360_PORTABLE/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+  clean-install:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar navegador de verificacion
+        run: |
+          set -euo pipefail
+          base=mcr.microsoft.com/playwright/python:v1.56.0-noble
+          for attempt in 1 2 3; do
+            if timeout 240s docker pull "$base"; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+          docker build --pull=false -t edubio360-browser:1.56.0 - <<'DOCKERFILE'
+          FROM mcr.microsoft.com/playwright/python:v1.56.0-noble
+          RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
+          DOCKERFILE
+      - uses: actions/download-artifact@v4
+        with:
+          name: EDUBIO360_PORTABLE
+          path: EDUBIO360_PORTABLE
+      - name: Instalacion limpia sin descargar imagenes
+        run: bash scripts/portable/verify.sh EDUBIO360_PORTABLE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: portable-verification
+          path: artifacts/
+          if-no-files-found: warn

@@ -1,0 +1,19 @@
+EDUBIO360 PORTABLE - DEMOSTRACION LOCAL
+Requisitos: Windows x64, Docker Desktop con motor Linux, Compose v2
+y virtualizacion habilitada. Se recomienda RAM total de 16 GB,
+al menos 8 GB disponibles para Docker y 20 GB libres de disco.
+Extrae TODO el archivo en una carpeta local antes de iniciar.
+1. Abre Docker Desktop y comprueba que el motor este activo.
+2. Ejecuta INICIAR.bat. La primera vez cargara las imagenes locales.
+3. Abre http://localhost:8088 para la aplicacion.
+Swagger: http://localhost:8080/swagger-ui/index.html
+Eureka: http://localhost:8761
+VERIFICAR.bat verifica salud y catalogo.
+DETENER.bat conserva los datos de MySQL; REINICIAR.bat reinicia.
+No se necesita instalar Java, Maven, Node, MySQL o RabbitMQ.
+No requiere descargas de dependencias al iniciar. Los mapas que
+dependan de servicios externos pueden no mostrar teselas sin Internet.
+Si un puerto esta ocupado, libera el puerto o usa otro computador.
+Esta version solo escucha en localhost; no es un despliegue de produccion.
+Las credenciales generadas del paquete son de demostracion, no de AWS.
+No compartas este entorno en una red publica.

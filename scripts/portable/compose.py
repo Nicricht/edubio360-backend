@@ -1,0 +1,33 @@
+"""Generate a local-only deployment from the project's canonical Compose file."""
+import json
+import sys
+from pathlib import Path
+
+out = Path(sys.argv[1])
+config = json.loads((out / "compose-build.json").read_text())
+services = config["services"]
+services.pop("analytics-replica", None)
+for service in services.values():
+    service.pop("build", None)
+    service.pop("container_name", None)
+    service["pull_policy"] = "never"
+    for port in service.get("ports", []):
+        port["host_ip"] = "127.0.0.1"
+# Keep the database initialization path relative to the portable directory.
+for volume in services["mysql"]["volumes"]:
+    if volume["type"] == "bind":
+        volume["source"] = "./mysql/init"
+services["frontend"] = {
+    "image": "edubio360/frontend:portable",
+    "pull_policy": "never",
+    "ports": [{"target": 80, "published": "8088", "host_ip": "127.0.0.1", "protocol": "tcp"}],
+    "depends_on": {"api-gateway": {"condition": "service_healthy"}},
+    "networks": {"default": None},
+    "healthcheck": {
+        "test": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"],
+        "interval": "10s", "timeout": "5s", "retries": 12,
+    },
+    "restart": "unless-stopped",
+}
+assert len(services) == 11
+(out / "compose.json").write_text(json.dumps(config, indent=2) + "\n")
