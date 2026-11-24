@@ -14,10 +14,10 @@ class SpringSecurityUpgradeContract(unittest.TestCase):
         pom = ET.parse(ROOT / "pom.xml").getroot()
         boot = pom.findtext("m:parent/m:version", namespaces=NS)
         self.assertIsNotNone(boot)
-        self.assertGreaterEqual(tuple(map(int, boot.split("."))), (4, 0, 9))
+        self.assertGreaterEqual(tuple(map(int, boot.split("."))), (4, 0, 10))
 
         properties = pom.find("m:properties", namespaces=NS)
-        self.assertEqual(properties.findtext("m:spring-cloud.version", namespaces=NS), "2025.1.4")
+        self.assertGreaterEqual(tuple(map(int, properties.findtext("m:spring-cloud.version", namespaces=NS).split("."))), (2025, 1, 5))
         self.assertGreaterEqual(
             tuple(map(int, properties.findtext("m:springdoc.version", namespaces=NS).split("."))),
             (3, 1, 0),
