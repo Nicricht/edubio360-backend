@@ -58,6 +58,40 @@ test "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/usuarios")" = 401
 curl -fsS --retry 3 --retry-all-errors --retry-max-time 45 "$BASE_URL/api/ofertas" | jq -e 'type == "array" and length > 0' >/dev/null
 docker node ls
 docker stack services edubio
+# Controlled read-only load on the actual Analytics endpoint, with an isolated
+# test account (same registration mechanism as flow.sh).
+bench_email="ep3-load-$(date +%s)-$RANDOM@example.test"
+bench_pass="$(openssl rand -hex 24)"
+bench_credentials="$(jq -nc --arg e "$bench_email" --arg p "$bench_pass" '{email:$e,password:$p}')"
+curl -fsS -H 'Content-Type: application/json' -d "$bench_credentials" "$BASE_URL/api/auth/register" >/dev/null
+BENCH_TOKEN="$(curl -fsS -H 'Content-Type: application/json' -d "$bench_credentials" "$BASE_URL/api/auth/login" | jq -er '.token')"
+export BENCH_TOKEN BASE_URL
+unset bench_credentials bench_pass
+printf 'replicas\tconcurrency\trequests\terrors\tmean_seconds\tp95_seconds\trequests_per_second\n' > artifacts/analytics-load-summary.tsv
+benchmark() {
+  local replicas="$1" concurrency="$2" requests=48 start end elapsed errors mean p95 rate raw
+  raw="artifacts/analytics-load-${replicas}r-${concurrency}c.tsv"
+  # Warm the route after registry changes before measuring.
+  curl -fsS --retry 6 --retry-delay 2 --retry-all-errors --retry-max-time 35 -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL/api/analytics/resumen" | jq -e '.estado=="OPERATIVO"' >/dev/null
+  start="$(date +%s%N)"
+  seq "$requests" | xargs -P "$concurrency" -I '{}' sh -c '
+    result=$(curl --silent --show-error --connect-timeout 5 --max-time 20 -o /dev/null -w "%{http_code} %{time_total}" -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL/api/analytics/resumen") || result="000 20"
+    printf "%s\n" "$result"
+  ' > "$raw"
+  end="$(date +%s%N)"
+  elapsed="$(awk -v n="$((end-start))" 'BEGIN{printf "%.6f",n/1e9}')"
+  test "$(wc -l < "$raw")" -eq "$requests"
+  errors="$(awk '$1!=200{n++} END{print n+0}' "$raw")"
+  mean="$(awk '{s+=$2} END{printf "%.6f",s/NR}' "$raw")"
+  p95="$(awk '{print $2}' "$raw" | sort -n | sed -n "$(((requests*95+99)/100))p")"
+  rate="$(awk -v n="$requests" -v t="$elapsed" 'BEGIN{printf "%.2f",n/t}')"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$replicas" "$concurrency" "$requests" "$errors" "$mean" "$p95" "$rate" | tee -a artifacts/analytics-load-summary.tsv
+  test "$errors" -eq 0
+}
+benchmark 1 1
+benchmark 1 8
+# Restore the original scale if a measurement fails.
+trap 'docker service scale --detach=true edubio_analytics-service=1 >/dev/null 2>&1 || true' EXIT
 docker service scale --detach=true edubio_analytics-service=2
 scale_attempts=36
 if [ "${EP3_CLOUD:-false}" = true ]; then scale_attempts=120; fi
@@ -70,10 +104,14 @@ docker service ps edubio_analytics-service
 for i in $(seq 1 15); do
   curl -fsS --retry 2 --retry-all-errors --retry-max-time 30 "$BASE_URL/openapi/analytics" >/dev/null
 done
+benchmark 2 1
+benchmark 2 8
+unset BENCH_TOKEN
 docker service scale --detach=true edubio_analytics-service=1
 for attempt in $(seq 1 "$scale_attempts"); do
   if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
   sleep 5
 done
 test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1"
+trap - EXIT
 docker stack services edubio
