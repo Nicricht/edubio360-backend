@@ -27,6 +27,6 @@ public class NotificationConsumer {
         }
         String destinatario = payload.path("estudianteEmail").asText("sin-destinatario");
         service.registrarEvento("ORIENTACION_CONFIRMADA", destinatario, message, "RABBITMQ");
-        log.info("Confirmación de orientación persistida para {}", destinatario);
+        log.info("Confirmación de orientación persistida");
     }
 }

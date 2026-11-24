@@ -25,6 +25,12 @@ jobs:
       - name: Diagnóstico JaCoCo
         if: always()
         run: python3 -B scripts/ep3/coverage-diagnostics.py
+      - name: Exportar métricas reales de cobertura
+        run: mkdir -p artifacts && python3 scripts/ep3/ci-metrics.py > artifacts/ci-metrics.prom
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ep3-ci-metrics
+          path: artifacts/ci-metrics.prom
       - name: Pruebas de integración de eventos y sintaxis
         run: |
           python3 -B -m unittest discover -s tests/ep3 -v
@@ -51,6 +57,10 @@ jobs:
       JWT_SECRET: ephemeral-ci-jwt-long-key-ep3-not-for-production
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep3-ci-metrics
+          path: artifacts
       - name: Construir todas las imágenes
         run: bash scripts/ep3/build-images.sh
       - name: Swarm y prueba integrada local
@@ -59,10 +69,12 @@ jobs:
           mkdir -p artifacts
           bash scripts/ep3/swarm-init.sh manager "$(hostname -I | awk '{print $1}')"
           docker stack config -c docker-stack.yml >/dev/null
+          started=$(date +%s)
           bash scripts/ep3/swarm-deploy.sh
           bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt
           bash scripts/ep3/flow.sh | tee artifacts/flow.txt
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
+          DEPLOY_DURATION_SECONDS=$(($(date +%s)-started)) bash scripts/ep3/publish-ci-metrics.sh
       - name: Guardar diagnóstico
         if: always()
         run: |
@@ -100,6 +112,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep3-ci-metrics
+          path: artifacts
       - name: Bloqueo de seguridad antes de aprovisionar AWS
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
