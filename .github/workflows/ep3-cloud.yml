@@ -48,7 +48,7 @@ jobs:
         run: python3 -B scripts/ep3/coverage-diagnostics.py
       - name: Exportar métricas reales de cobertura
         run: mkdir -p artifacts && python3 scripts/ep3/ci-metrics.py > artifacts/ci-metrics.prom
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ep3-ci-metrics
           path: artifacts/ci-metrics.prom
@@ -57,7 +57,7 @@ jobs:
           python3 -B -m unittest discover -s tests/ep3 -v
           for script in scripts/ep3/*.sh; do bash -n "$script"; done
           python3 -m json.tool cloud/infra.json >/dev/null
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ep3-unit-tests
@@ -66,7 +66,7 @@ jobs:
             **/target/site/jacoco/**
       - name: Empaquetar JAR verificados del commit
         run: bash scripts/ep3/verified-jars.sh prepare "$RUNNER_TEMP/verified-jars"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ep3-verified-jars
           path: ${{ runner.temp }}/verified-jars/
@@ -115,7 +115,7 @@ jobs:
           mkdir -p artifacts
           docker logs grafana-ui-check > artifacts/grafana-ui-preflight.log 2>&1 || true
           docker rm -f grafana-ui-check || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: grafana-ui-preflight
@@ -234,7 +234,7 @@ jobs:
             timeout 20s docker service logs --tail 80 "$s" >> artifacts/swarm-logs.txt 2>&1 || true
           done
           docker stack rm edubio || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ep3-swarm
@@ -372,7 +372,7 @@ jobs:
             -v "$PWD/scripts/ep3/browser-smoke.py:/work/browser-smoke.py:ro" \
             -v "$PWD/artifacts:/work/artifacts" -w /work \
             edubio360-browser:1.56.0 python /work/browser-smoke.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ep3-aws-evidence

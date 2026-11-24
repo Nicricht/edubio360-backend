@@ -38,7 +38,7 @@ jobs:
         env:
           PORTABLE_USE_VERIFIED_JARS: 'true'
         run: bash scripts/portable/package.sh frontend-source EDUBIO360_PORTABLE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: EDUBIO360_PORTABLE
           path: EDUBIO360_PORTABLE/
@@ -72,7 +72,7 @@ jobs:
         run: bash scripts/portable/verify.sh EDUBIO360_PORTABLE
       - name: Instalacion limpia del modo observabilidad
         run: bash scripts/portable/verify-monitoring.sh EDUBIO360_PORTABLE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: portable-verification
