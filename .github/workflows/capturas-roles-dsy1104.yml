@@ -1,0 +1,134 @@
+name: Capturas privadas DSY1104
+on:
+  push:
+    branches: [entrega-dsy1104-20261124]
+    paths: ['.github/workflows/capturas-roles-dsy1104.yml']
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE_PREFIX: edubio360
+      IMAGE_TAG: local
+      EP3_FRONTEND: 'true'
+      MYSQL_ROOT_PASSWORD: ephemeral-ci-only
+      RABBITMQ_PASSWORD: ephemeral-ci-only
+      JWT_SECRET: ephemeral-ci-jwt-long-key-ep3-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0b6a7d9161d0bac7be5863091fe217ab11f9b37f
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
+          path: frontend-source
+          persist-credentials: false
+      - name: Entorno desechable sin AWS ni observabilidad
+        run: |
+          bash scripts/ep3/build-images.sh
+          docker build -t edubio360/frontend:local frontend-source
+          docker pull mcr.microsoft.com/playwright/python:v1.56.0-noble
+          bash scripts/ep3/swarm-init.sh manager "$(hostname -I | awk '{print $1}')"
+          bash scripts/ep3/swarm-deploy.sh
+      - name: Crear cuentas ficticias exclusivamente en el entorno aislado
+        run: |
+          set -euo pipefail
+          base=http://127.0.0.1:8080
+          for i in $(seq 1 100); do
+            if curl -fsS --max-time 5 "$base/api/ofertas" | jq -e 'length>0' >/dev/null && curl -fsS --max-time 5 "$base/api/sedes" | jq -e 'length>0' >/dev/null; then break; fi
+            sleep 3
+          done
+          pass="$(openssl rand -hex 24)"
+          echo "::add-mask::$pass"
+          export PASS="$pass"
+          mkdir -p capturas
+          python3 - <<'PY'
+          import json, os, subprocess, time, urllib.request
+          from pathlib import Path
+          base="http://127.0.0.1:8080"
+          pw=os.environ["PASS"]
+          def post(path,data,token=None):
+              h={"Content-Type":"application/json"}
+              if token: h["Authorization"]="Bearer "+token
+              with urllib.request.urlopen(urllib.request.Request(base+path,data=json.dumps(data).encode(),headers=h,method="POST"),timeout=15) as r:return json.load(r)
+          for attempt in range(30):
+              try:
+                  subprocess.run(["docker","run","--rm","--network","edubio_backend","--entrypoint","curl","edubio360/api-gateway:local","-fsS","--max-time","10","-H","Content-Type: application/json","-d",json.dumps({"email":"admin.evidencia@example.test","password":pw,"role":"ADMIN","active":True}),"http://auth-service:8081/api/usuarios"],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                  break
+              except subprocess.CalledProcessError:
+                  if attempt==29:raise
+                  time.sleep(4)
+          a=post("/api/auth/login",{"email":"admin.evidencia@example.test","password":pw})["token"]
+          post("/api/usuarios",{"email":"orientador.evidencia@example.test","password":pw,"role":"ORIENTADOR","active":True},a)
+          post("/api/auth/register",{"email":"estudiante.evidencia@example.test","password":pw})
+          st=post("/api/auth/login",{"email":"estudiante.evidencia@example.test","password":pw})["token"]
+          from datetime import datetime,timedelta
+          post("/api/solicitudes",{"ofertaId":1,"motivo":"Orientación académica de prueba","fechaHora":(datetime.now()+timedelta(days=2)).isoformat(timespec="seconds")},st)
+          PY
+          printf 'CAPTURE_PASS=%s\n' "$pass" >> "$GITHUB_ENV"
+      - name: Capturas reales de los tres roles y comparador
+        run: |
+          cat > /tmp/captura-roles.py <<'PY'
+          import os,json
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright,expect
+          base="http://127.0.0.1:8088"
+          out=Path("/evidence")
+          results=[]
+          with sync_playwright() as p:
+              browser=p.chromium.launch(args=["--no-sandbox"])
+              for role, routes in [
+                  ("estudiante",[("/estudiante/perfil","perfil-estudiante.png"),("/estudiante/notificaciones","notificaciones-estudiante.png"),("/estudiante/historial","historial-estudiante.png")]),
+                  ("orientador",[("/orientador","panel-orientador.png"),("/orientador/solicitudes","solicitudes-orientador.png"),("/orientador/historial","historial-orientador.png"),("/orientador/perfil","perfil-orientador.png")]),
+                  ("admin",[("/admin","panel-admin.png"),("/admin/ofertas","ofertas-admin.png"),("/admin/ofertas/nueva","nueva-oferta-admin.png"),("/admin/usuarios","usuarios-admin.png"),("/admin/usuarios/nuevo","nuevo-usuario-admin.png"),("/admin/solicitudes","solicitudes-admin.png")])
+              ]:
+                  page=browser.new_page(viewport={"width":1440,"height":1000})
+                  try:
+                      page.goto(base+"/login",timeout=30000)
+                      page.get_by_label("Correo electrónico").fill(role+".evidencia@example.test")
+                      page.get_by_label("Contraseña",exact=True).fill(os.environ["CAPTURE_PASS"])
+                      page.get_by_role("button",name="Ingresar",exact=True).click()
+                      page.wait_for_url(base+"/"+role,timeout=30000)
+                      for route,file in routes:
+                          try:
+                              page.goto(base+route,timeout=25000,wait_until="domcontentloaded")
+                              page.locator("main h1").first.wait_for(state="visible",timeout=15000)
+                              page.wait_for_timeout(1200)
+                              assert page.url==base+route
+                              page.screenshot(path=str(out/file))
+                              results.append({"route":route,"file":file,"heading":page.locator("main h1").first.inner_text()})
+                          except Exception as e: results.append({"route":route,"error":str(e)[:350]})
+                  except Exception as e:results.append({"role":role,"error":str(e)[:350]})
+                  finally:page.close()
+              page=browser.new_page(viewport={"width":1440,"height":1000})
+              try:
+                  page.goto(base+"/carreras")
+                  buttons=page.get_by_role("button",name="Agregar",exact=False)
+                  expect(buttons.nth(1)).to_be_visible(timeout=30000)
+                  page.screenshot(path=str(out/"catalogo-cargado.png"))
+                  buttons.nth(0).click()
+                  buttons.nth(0).click() if False else buttons.nth(1).click()
+                  page.get_by_role("link",name="Comparar",exact=False).first.click()
+                  expect(page.locator(".compare-card").nth(1)).to_be_visible(timeout=15000)
+                  page.screenshot(path=str(out/"comparacion-dos-ofertas.png"))
+                  results.append({"route":"/comparar","file":"comparacion-dos-ofertas.png"})
+              except Exception as e:results.append({"route":"/comparar","error":str(e)[:350]})
+              browser.close()
+          (out/"resultado-roles.json").write_text(json.dumps(results,ensure_ascii=False,indent=2))
+          print(json.dumps(results,ensure_ascii=False))
+          if not any("file" in r for r in results):raise SystemExit(1)
+          PY
+          docker run --rm --network host -e CAPTURE_PASS -v "$PWD/capturas:/evidence" -v /tmp/captura-roles.py:/tmp/captura-roles.py:ro mcr.microsoft.com/playwright/python:v1.56.0-noble sh -c 'pip install --quiet playwright==1.56.0 && python /tmp/captura-roles.py'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dsy1104-capturas-roles
+          path: capturas/
+          if-no-files-found: warn
+      - name: Eliminar entorno y cuentas ficticias
+        if: always()
+        run: docker stack rm edubio || true
