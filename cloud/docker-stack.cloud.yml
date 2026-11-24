@@ -4,6 +4,23 @@
     "guidance-service": {
       "environment": {
         "EP3_CLOUD_EVENTS": "true"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8083/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
+      },
+      "deploy": {
+        "placement": {
+          "constraints": [
+            "node.role == worker"
+          ]
+        }
       }
     },
     "cloud-event-bridge": {
@@ -36,12 +53,89 @@
         "placement": {
           "max_replicas_per_node": 1
         }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8085/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
       }
     },
     "academic-service": {
       "deploy": {
         "placement": {
           "max_replicas_per_node": 1
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8082/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
+      }
+    },
+    "auth-service": {
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8081/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
+      },
+      "deploy": {
+        "placement": {
+          "constraints": [
+            "node.role == manager"
+          ]
+        }
+      }
+    },
+    "notification-service": {
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8084/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
+      },
+      "deploy": {
+        "placement": {
+          "constraints": [
+            "node.role == manager"
+          ]
+        }
+      }
+    },
+    "import-service": {
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8086/actuator/health >/dev/null"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "600s"
+      },
+      "deploy": {
+        "placement": {
+          "constraints": [
+            "node.role == worker"
+          ]
         }
       }
     }

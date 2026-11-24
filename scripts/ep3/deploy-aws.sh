@@ -19,7 +19,7 @@ remote() {
     status="$(aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query Status --output text 2>/dev/null || true)"
     case "$status" in
       Success) aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardOutputContent --output text; return;;
-      Failed|Cancelled|TimedOut|Cancelling) aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardErrorContent --output text >&2; return 1;;
+      Failed|Cancelled|TimedOut|Cancelling) aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardOutputContent --output text; aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardErrorContent --output text >&2; return 1;;
     esac
     sleep 10
   done

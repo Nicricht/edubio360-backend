@@ -1,0 +1,100 @@
+name: AWS recuperar despliegue verificado
+on:
+  push:
+    branches: [ep3-devops-cloud]
+    paths:
+      - '.github/workflows/aws-recover-verified.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/ep3-devops-cloud' && vars.EP3_AWS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    environment: ep3-aws
+    concurrency:
+      group: edubio-devops-ep3-aws
+      cancel-in-progress: false
+    env:
+      AWS_REGION: ${{ vars.EP3_AWS_REGION }}
+      EXPECTED_ACCOUNT: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+      EP3_STACK: edubio-devops-ep3
+      IMAGE_TAG: c2296701b485be2c557472a7f211c92f34581c13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reutilizar exclusivamente la version y controles aprobados
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "$IMAGE_TAG" HEAD | while IFS= read -r p; do
+            case "$p" in
+              cloud/docker-stack.cloud.yml|scripts/ep3/swarm-deploy.sh|scripts/ep3/deploy-aws.sh|scripts/ep3/aws-recovery-diagnostic.sh|.github/workflows/aws-recovery-diagnostic.yml|.github/workflows/aws-recover-verified.yml|docs/EP3_AWS_RECUPERACION.md) ;;
+              *) echo "Cambio no autorizado para recuperar imágenes verificadas: $p"; exit 1;;
+            esac
+          done
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949435" | jq -e --arg sha "$IMAGE_TAG" '.head_sha==$sha and .head_branch=="ep3-devops-cloud"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949435/jobs?per_page=100" | jq -e '([.jobs[]|select(.name=="verify" or .name=="swarm" or .name=="Grafana UI preflight aislado")|.conclusion] == ["success","success","success"]) and ([.jobs[]|select(.name=="cloud")|.steps[]|select(.name=="Seguridad y calidad frontend antes de aprovisionar AWS" or .name=="Bloqueo de seguridad antes de aprovisionar AWS" or .name=="Construir y publicar imágenes en ECR")|.conclusion] == ["success","success","success"])' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/45498949528" | jq -e --arg sha "$IMAGE_TAG" '.head_sha==$sha and .conclusion=="success"' >/dev/null
+          bash -n scripts/ep3/swarm-deploy.sh scripts/ep3/deploy-aws.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep3-ci-metrics
+          path: artifacts
+          github-token: ${{ github.token }}
+          run-id: 45498949435
+      - name: Preparar Chromium reproducible
+        timeout-minutes: 18
+        run: |
+          set -euo pipefail
+          base=mcr.microsoft.com/playwright/python:v1.56.0-noble
+          for attempt in 1 2 3; do
+            if timeout 240s docker pull "$base"; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+          docker build --pull=false -t edubio360-browser:1.56.0 - <<'DOCKERFILE'
+          FROM mcr.microsoft.com/playwright/python:v1.56.0-noble
+          RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
+          DOCKERFILE
+          docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
+      - name: Autenticacion AWS Academy
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.EP3_LAB_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.EP3_LAB_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.EP3_LAB_SESSION_TOKEN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+      - name: Validar cuenta y stack existente e imagenes ECR
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_ACCOUNT"
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+          test "$EP3_STACK" = edubio-devops-ep3
+          aws cloudformation describe-stacks --stack-name "$EP3_STACK" --query 'Stacks[0].StackStatus' --output text | grep -Ex 'CREATE_COMPLETE|UPDATE_COMPLETE|UPDATE_ROLLBACK_COMPLETE'
+          for service in discovery-server api-gateway auth-service academic-service guidance-service notification-service analytics-service import-service cloud-event-bridge frontend; do
+            aws ecr describe-images --repository-name "$EP3_STACK/$service" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text | grep -Ex 'sha256:[0-9a-f]{64}'
+          done
+          echo "IMAGE_PREFIX=$EXPECTED_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/$EP3_STACK" >> "$GITHUB_ENV"
+      - name: Recuperar arranque y ejecutar pruebas completas en AWS
+        run: bash scripts/ep3/deploy-aws.sh
+      - name: Prueba Fullstack en la URL HTTPS de AWS
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export FRONTEND_URL="$(jq -er '.[] | select(.OutputKey=="ApiUrl") | .OutputValue' artifacts/cloud-outputs.json)"
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e FRONTEND_URL \
+            -v "$PWD/scripts/ep3/browser-smoke.py:/work/browser-smoke.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/browser-smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ep3-aws-evidence
+          path: artifacts/
