@@ -40,7 +40,7 @@ services:
       - /bin/sh
       - -ec
       - >-
-        if [ -e /var/lib/rabbitmq/.erlang.cookie ]; then chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie; chmod 400 /var/lib/rabbitmq/.erlang.cookie; fi; exec /usr/local/bin/docker-entrypoint.sh "$@"
+        if [ -e /var/lib/rabbitmq/.erlang.cookie ]; then chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie; chmod 400 /var/lib/rabbitmq/.erlang.cookie; fi; exec /usr/local/bin/docker-entrypoint.sh rabbitmq-server
       - --
     command: ["rabbitmq-server"]
     volumes:
