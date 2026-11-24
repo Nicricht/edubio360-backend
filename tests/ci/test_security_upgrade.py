@@ -17,6 +17,7 @@ class SpringSecurityUpgradeContract(unittest.TestCase):
         self.assertGreaterEqual(tuple(map(int, boot.split("."))), (4, 0, 10))
 
         properties = pom.find("m:properties", namespaces=NS)
+        self.assertGreaterEqual(tuple(map(int, properties.findtext("m:opentelemetry.version", namespaces=NS).split("."))), (1, 62, 0))
         self.assertGreaterEqual(tuple(map(int, properties.findtext("m:spring-cloud.version", namespaces=NS).split("."))), (2025, 1, 5))
         self.assertGreaterEqual(
             tuple(map(int, properties.findtext("m:springdoc.version", namespaces=NS).split("."))),
