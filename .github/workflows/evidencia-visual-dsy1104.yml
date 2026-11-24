@@ -1,0 +1,65 @@
+name: Evidencia visual pública DSY1104
+on:
+  push:
+    branches: [entrega-dsy1104-20261124]
+    paths: ['.github/workflows/evidencia-visual-dsy1104.yml']
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    container: mcr.microsoft.com/playwright/python:v1.56.0-noble
+    steps:
+      - name: Instalar cliente Python Playwright
+        run: pip install --quiet playwright==1.56.0
+      - name: Capturar navegación y HTTP reales sin modificar datos
+        env:
+          BASE: https://zscqyc1qci.execute-api.us-east-1.amazonaws.com
+        run: |
+          mkdir -p evidencias
+          python - <<'PY'
+          import os, json
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          base = os.environ["BASE"]
+          out = Path("evidencias")
+          records = []
+          def capture(page, path, file, expected=200, selector=None):
+              try:
+                  r = page.goto(base+path, wait_until="domcontentloaded", timeout=25000)
+                  if not r or r.status != expected:
+                      raise RuntimeError("HTTP " + str(r.status if r else None))
+                  if selector:
+                      page.locator(selector).first.wait_for(state="visible", timeout=15000)
+                  page.screenshot(path=str(out/file), timeout=10000)
+                  records.append({"path":path,"status":r.status,"capture":file})
+              except Exception as e:
+                  records.append({"path":path,"error":str(e)[:500]})
+          with sync_playwright() as p:
+              browser=p.chromium.launch(args=["--no-sandbox"])
+              page=browser.new_page(viewport={"width":1440,"height":1000})
+              capture(page,"/","publico-inicio.png",selector="a[href='/carreras']")
+              capture(page,"/carreras","publico-catalogo.png",selector="a[href^='/carreras/']")
+              try:
+                  buttons=page.get_by_role("button",name="Agregar",exact=False)
+                  if buttons.count()>=2:
+                      buttons.nth(0).click()
+                      buttons.nth(1).click()
+              except Exception: pass
+              capture(page,"/comparar","publico-comparador.png",selector="main")
+              capture(page,"/mapa","publico-mapa.png",selector="main")
+              capture(page,"/swagger-ui/index.html","swagger-real.png",selector=".swagger-ui .opblock")
+              capture(page,"/api/ofertas","http-200-ofertas.png",selector="body")
+              capture(page,"/api/usuarios","http-401-usuarios.png",401,selector="body")
+              browser.close()
+          (out/"resultado.json").write_text(json.dumps(records,ensure_ascii=False,indent=2))
+          print(json.dumps(records,ensure_ascii=False,indent=2))
+          if not any("capture" in r for r in records): raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dsy1104-capturas-publicas
+          path: evidencias/
+          if-no-files-found: error
