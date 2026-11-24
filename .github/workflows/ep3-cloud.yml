@@ -50,6 +50,7 @@ jobs:
     env:
       IMAGE_PREFIX: edubio360
       EP3_MONITORING: 'true'
+      EP3_FRONTEND: 'true'
       GRAFANA_ADMIN_PASSWORD: ephemeral-ci-grafana-only
       IMAGE_TAG: ${{ github.sha }}
       MYSQL_ROOT_PASSWORD: ephemeral-ci-mysql-ep3
@@ -61,8 +62,15 @@ jobs:
         with:
           name: ep3-ci-metrics
           path: artifacts
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: ac68fd6dac5ca8c43d49f8b7d868defe85a30821
+          path: frontend-source
       - name: Construir todas las imágenes
-        run: bash scripts/ep3/build-images.sh
+        run: |
+          bash scripts/ep3/build-images.sh
+          docker build -t "$IMAGE_PREFIX/frontend:$IMAGE_TAG" frontend-source
       - name: Swarm y prueba integrada local
         run: |
           set -o pipefail
@@ -75,6 +83,11 @@ jobs:
           bash scripts/ep3/flow.sh | tee artifacts/flow.txt
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
           DEPLOY_DURATION_SECONDS=$(($(date +%s)-started)) bash scripts/ep3/publish-ci-metrics.sh
+      - name: Prueba Fullstack con Chromium
+        run: |
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+          python3 scripts/ep3/browser-smoke.py
       - name: Guardar diagnóstico
         if: always()
         run: |
@@ -130,6 +143,11 @@ jobs:
           aws-region: ${{ vars.EP3_AWS_REGION }}
       - name: Provisionar VPC, EC2, ECR, SQS, Lambda, DynamoDB y API Gateway
         run: bash scripts/ep3/provision.sh
+      - uses: actions/checkout@v4
+        with:
+          repository: Nicricht/edubio360-frontend
+          ref: ac68fd6dac5ca8c43d49f8b7d868defe85a30821
+          path: frontend-source
       - name: Construir y publicar imágenes en ECR
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"
@@ -137,6 +155,8 @@ jobs:
           aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
           echo "IMAGE_PREFIX=$registry/edubio-ep3" >> "$GITHUB_ENV"
           IMAGE_PREFIX="$registry/edubio-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
+          docker build -t "$registry/edubio-ep3/frontend:$IMAGE_TAG" frontend-source
+          docker push "$registry/edubio-ep3/frontend:$IMAGE_TAG"
       - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo
         run: bash scripts/ep3/deploy-aws.sh
       - uses: actions/upload-artifact@v4
