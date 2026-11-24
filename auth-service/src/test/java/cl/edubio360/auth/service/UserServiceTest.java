@@ -126,6 +126,25 @@ class UserServiceTest {
     }
 
     @Test
+    void guardaPerfilYPermiteEditarSinCambiarClave() {
+        var perfil = new cl.edubio360.auth.dto.ProfileData("12345678-5", "Ana", "Prueba", "Biobío", "Concepción", "Dirección");
+        when(encoder.encode("sample-value-123")).thenReturn("hash");
+        when(users.save(any(UserEntity.class))).thenAnswer(i -> i.getArgument(0));
+        assertEquals("Ana", service.registrar("ana@example.test", "sample-value-123", perfil).perfil().nombre());
+        when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));
+        assertEquals("Ana", service.actualizarPerfil("user@example.test", perfil).perfil().nombre());
+        when(users.findById(1L)).thenReturn(Optional.of(user));
+        when(users.findByEmailIgnoreCase("otra@example.test")).thenReturn(Optional.empty());
+        assertEquals("otra@example.test", service.actualizar(1L, new UserRequest("otra@example.test", null, "STUDENT", true, perfil)).email());
+        assertEquals("hash", user.getPasswordHash());
+        assertThrows(ResponseStatusException.class, () -> service.crear(new UserRequest("new@example.test", null, "STUDENT", true)));
+        user.actualizar("otra@example.test", "hash", "STUDENT", false);
+        assertThrows(ResponseStatusException.class, () -> service.actualizarPerfil("user@example.test", perfil));
+        when(users.findByEmailIgnoreCase("missing@example.test")).thenReturn(Optional.empty());
+        assertThrows(ResponseStatusException.class, () -> service.actualizarPerfil("missing@example.test", perfil));
+    }
+
+    @Test
     void rechazaLoginDeUsuarioInactivoYCorreoInexistente() {
         user.actualizar("user@example.test", "hash", "STUDENT", false);
         when(users.findByEmailIgnoreCase("user@example.test")).thenReturn(Optional.of(user));

@@ -21,12 +21,19 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
-        return service.registrar(request.email(), request.password());
+        return request.perfil() == null ? service.registrar(request.email(), request.password())
+                : service.registrar(request.email(), request.password(), request.perfil());
     }
 
     @GetMapping("/me")
     public UserResponse me(@RequestHeader("X-User-Email") String email) {
         return service.sesionActual(email);
+    }
+
+    @PutMapping("/me")
+    public UserResponse actualizarPerfil(@RequestHeader("X-User-Email") String email,
+                                         @Valid @RequestBody cl.edubio360.auth.dto.ProfileData perfil) {
+        return service.actualizarPerfil(email, perfil);
     }
 
     @PostMapping("/login")
