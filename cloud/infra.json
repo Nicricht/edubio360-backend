@@ -167,6 +167,14 @@
             "SourceSecurityGroupId": {
               "Ref": "AlbSG"
             }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8088,
+            "ToPort": 8088,
+            "SourceSecurityGroupId": {
+              "Ref": "AlbSG"
+            }
           }
         ]
       }
@@ -623,7 +631,7 @@
           {
             "Type": "forward",
             "TargetGroupArn": {
-              "Ref": "Targets"
+              "Ref": "FrontendTargets"
             }
           }
         ]
@@ -845,6 +853,84 @@
             }
           }
         ]
+      }
+    },
+    "EcrFrontend": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/frontend",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "FrontendTargets": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Port": 8088,
+        "Protocol": "HTTP",
+        "TargetType": "instance",
+        "HealthCheckPath": "/healthz",
+        "Targets": [
+          {
+            "Id": {
+              "Ref": "Manager"
+            }
+          },
+          {
+            "Id": {
+              "Ref": "Worker"
+            }
+          }
+        ]
+      }
+    },
+    "FrontendRule": {
+      "Type": "AWS::ElasticLoadBalancingV2::ListenerRule",
+      "Properties": {
+        "ListenerArn": {
+          "Ref": "Listener"
+        },
+        "Priority": 20,
+        "Conditions": [
+          {
+            "Field": "path-pattern",
+            "Values": [
+              "/api/*",
+              "/openapi/*",
+              "/swagger-ui*",
+              "/v3/api-docs*",
+              "/actuator/health"
+            ]
+          }
+        ],
+        "Actions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "Targets"
+            }
+          }
+        ]
+      }
+    },
+    "RouteRoot": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "Api"
+        },
+        "RouteKey": "ANY /",
+        "Target": {
+          "Fn::Sub": "integrations/${Integration}"
+        }
       }
     }
   },

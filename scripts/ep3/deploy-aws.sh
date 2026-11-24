@@ -31,7 +31,7 @@ token="$(remote "$manager" 'docker swarm join-token -q worker')"
 echo "::add-mask::$token"
 remote "$worker" "if [ \$(docker info --format '{{.Swarm.LocalNodeState}}') = inactive ]; then docker swarm join --token '$token' '$ip:2377' >/dev/null; fi"
 # Archivos de definición del commit, no se copian credenciales desde el runner.
-bundle="$(tar -czf - docker-stack.yml docker-stack.monitoring.yml observability cloud/docker-stack.cloud.yml mysql/init/01-create-databases.sql scripts/ep3/swarm-deploy.sh scripts/ep3/swarm-smoke.sh scripts/ep3/flow.sh scripts/ep3/monitoring-smoke.sh scripts/ep3/publish-ci-metrics.sh artifacts/ci-metrics.prom | base64 -w0)"
+bundle="$(tar -czf - docker-stack.yml docker-stack.monitoring.yml docker-stack.frontend.yml observability cloud/docker-stack.cloud.yml mysql/init/01-create-databases.sql scripts/ep3/swarm-deploy.sh scripts/ep3/swarm-smoke.sh scripts/ep3/flow.sh scripts/ep3/monitoring-smoke.sh scripts/ep3/publish-ci-metrics.sh artifacts/ci-metrics.prom | base64 -w0)"
 remote "$manager" "mkdir -p /opt/edubio; cd /opt/edubio; echo '$bundle' | base64 -d | tar -xzf -;
 umask 077
 if [ ! -s .secrets ]; then
@@ -41,7 +41,7 @@ if ! grep -q '^GRAFANA_ADMIN_PASSWORD=' .secrets; then
   printf 'GRAFANA_ADMIN_PASSWORD=%s\n' \$(openssl rand -hex 24) >> .secrets
 fi
 set -a; . ./.secrets; set +a
-export EP3_MONITORING=true
+export EP3_MONITORING=true EP3_FRONTEND=true
 export IMAGE_PREFIX='$IMAGE_PREFIX' IMAGE_TAG='$IMAGE_TAG' AWS_REGION='$AWS_REGION' SQS_QUEUE_URL='$queue' RECEIPT_TABLE='$table' BASE_URL='$api' EP3_CLOUD=true
 aws ecr get-login-password --region '$AWS_REGION' | docker login --username AWS --password-stdin '${IMAGE_PREFIX%%/*}'
 docker pull '$IMAGE_PREFIX/api-gateway:$IMAGE_TAG'

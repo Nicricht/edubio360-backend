@@ -1,0 +1,42 @@
+{
+  "version": "3.8",
+  "services": {
+    "frontend": {
+      "image": "${IMAGE_PREFIX}/frontend:${IMAGE_TAG}",
+      "networks": [
+        "backend"
+      ],
+      "ports": [
+        {
+          "target": 80,
+          "published": 8088,
+          "mode": "ingress"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1/healthz"
+        ],
+        "interval": "20s",
+        "timeout": "5s",
+        "retries": 5
+      },
+      "deploy": {
+        "replicas": 1,
+        "resources": {
+          "limits": {
+            "memory": "128M"
+          }
+        },
+        "restart_policy": {
+          "condition": "any"
+        }
+      }
+    }
+  }
+}
