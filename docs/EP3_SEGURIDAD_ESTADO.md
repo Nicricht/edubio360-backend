@@ -9,3 +9,7 @@ Los informes JaCoCo y las líneas sin cobertura se registran incluso si Maven fa
 El escaneo de 24-11-2026 también detectó vulnerabilidades altas y críticas en Spring Framework, Spring Boot, Spring Security, Spring AMQP, Spring Cloud Gateway y Jackson. Se actualiza el BOM a Spring Boot 4.0.10 y Spring Cloud 2025.1.5, publicados el 20-11-2026. Boot gestiona Jackson 2.21.8 y 3.1.8, Framework 7.0.11, Security 7.0.9 y AMQP 4.0.7; Cloud gestiona Gateway 5.0.5. Pendiente reescaneo. No se declara que JAXB esté resuelto. Referencias https://spring.io/blog/2026/11/20/spring-boot-4-0-10-available-now/ y https://spring.io/blog/2026/11/20/spring-cloud-2025-1-5-has-been-released/.
 
 El escaneo de OpenTelemetry detectó CVE-2026-45292 en 1.55.0 (versión administrada incluso por Spring Boot 4.0.10). Se fija el BOM OpenTelemetry en 1.62.0, versión corregida según https://security.snyk.io/vuln/SNYK-JAVA-IOOPENTELEMETRY-17280222. Pendiente comprobar el reactor y Snyk con este cambio.
+
+## Resultado 24-11-2026: reemplazo JAXB
+
+La rama feature/ep3-jaxb-remediation, commit b5061161b74d2ed809476f04d9e5982986512b1d, aprobó Maven, JaCoCo, Snyk Open Source (9 proyectos sin rutas vulnerables reportadas con umbral high), Snyk Code y construcción no-root. Evidencia: https://github.com/Nicricht/edubio360-backend/actions/runs/45322199452. Se integra MOXy y Maven Enforcer en la rama integral conservando los cambios de Academy; la combinación requiere nueva validación. Las pruebas de ejecución Compose y Swarm aún no están certificadas. No hay excepciones Snyk activas.
