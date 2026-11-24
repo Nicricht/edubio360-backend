@@ -73,6 +73,7 @@ jobs:
       EP3_MONITORING: 'true'
       EP3_FRONTEND: 'true'
       GRAFANA_ADMIN_PASSWORD: ephemeral-ci-grafana-only
+      GRAFANA_ROOT_URL: http://grafana:3000/
       IMAGE_TAG: ${{ github.sha }}
       MYSQL_ROOT_PASSWORD: ephemeral-ci-mysql-ep3
       RABBITMQ_PASSWORD: ephemeral-ci-rabbit-ep3

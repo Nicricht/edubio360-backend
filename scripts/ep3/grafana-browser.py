@@ -2,7 +2,8 @@
 import os
 from pathlib import Path
 from time import sleep
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
+import json
 from playwright.sync_api import sync_playwright, expect
 
 base = os.getenv("GRAFANA_URL", "http://127.0.0.1:3000").rstrip("/")
@@ -10,9 +11,13 @@ password = os.environ["GRAFANA_ADMIN_PASSWORD"]
 art = Path("artifacts")
 art.mkdir(exist_ok=True)
 with sync_playwright() as pw:
-    browser = pw.chromium.launch(headless=True)
+    browser = pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage'])
     context = browser.new_context(viewport={"width": 1600, "height": 1000})
     page = context.new_page()
+    diagnostics = []
+    page.on('pageerror', lambda error: diagnostics.append({'pageerror': str(error)[:500]}))
+    page.on('requestfailed', lambda req: diagnostics.append({'failed': urlsplit(req.url).path, 'reason': req.failure}))
+    page.on('response', lambda res: diagnostics.append({'status': res.status, 'path': urlsplit(res.url).path}) if res.status >= 400 else None)
     try:
         # Check the actual Grafana service, not an unrelated host listener.
         for attempt in range(20):
@@ -46,15 +51,23 @@ with sync_playwright() as pw:
         dashboard = data["dashboard"]
         if dashboard["uid"] != "edubio-ep3" or len(dashboard["panels"]) < 11:
             raise RuntimeError("Unexpected Grafana dashboard")
-        import json
         (art / "grafana-dashboard-verification.json").write_text(
             json.dumps({"uid": dashboard["uid"], "title": dashboard["title"],
                         "panels": [p["title"] for p in dashboard["panels"]]},
                        ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        url = urljoin(base + "/", data["meta"]["url"])
-        page.goto(url + "?from=now-30m&to=now", wait_until="domcontentloaded", timeout=60000)
+        # Keep API and UI on the same authenticated origin, even if meta.url is absolute.
+        url = urljoin(base + "/", urlsplit(data["meta"]["url"]).path)
+        page.goto(url + "?from=now-30m&to=now", wait_until="load", timeout=60000)
+        # The deployed app must load its own JS/CSS and render real panels.
+        page.wait_for_function("document.querySelectorAll('script[src]').length > 0", timeout=30000)
+        for asset in page.locator('script[src]').evaluate_all('(nodes) => nodes.map(n => n.src)'):
+            if urlsplit(asset).netloc != urlsplit(base).netloc:
+                raise RuntimeError('Unexpected script origin: ' + urlsplit(asset).netloc)
+            check = context.request.get(asset, timeout=15000)
+            if not check.ok or 'text/html' in check.headers.get('content-type', ''):
+                raise RuntimeError(f'Grafana script unavailable: {urlsplit(asset).path} HTTP {check.status}')
         for title, name in [
             ("Disponibilidad por servicio", "grafana-disponibilidad"),
             ("Peticiones HTTP por segundo", "grafana-peticiones"),
@@ -74,6 +87,8 @@ with sync_playwright() as pw:
     except Exception:
         # Never capture a login form or print credentials/cookies.
         print("Grafana browser diagnostic: title=" + page.title(), flush=True)
+        (art / "grafana-browser-errors.json").write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
+        print(json.dumps(diagnostics[:20]), flush=True)
         if "/d/edubio-ep3" in page.url:
             page.screenshot(path=str(art / "grafana-diagnostico.png"))
         raise
