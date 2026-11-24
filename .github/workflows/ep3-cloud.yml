@@ -1,7 +1,7 @@
 name: EduBio360 EP3 JVY0101
 on:
   push:
-    branches: [main, "feature/ep3-cloud", "feature/ep3-integral"]
+    branches: [main, nico, "feature/ep3-cloud", "feature/ep3-integral"]
   pull_request:
     branches: [main]
   workflow_dispatch:

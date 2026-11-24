@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 base="${BASE_URL:-http://localhost:8080}"
+curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 suffix="$(date +%s)-$RANDOM"
 student="ep3-student-$suffix@example.test"
@@ -14,6 +15,18 @@ login() {
 curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$student" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/register" >/dev/null
 # El operador provisiona el primer administrador exclusivamente en la red privada.
 admin_id="$(docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$admin" --arg p "$pass" '{email:$e,password:$p,role:"ADMIN",active:true}')" http://auth-service:8081/api/usuarios | jq -er '.id')"
+teacher_id=""
+cleanup_privileged() {
+  local code=$?
+  trap - EXIT
+  for account in "$teacher_id" "$admin_id"; do
+    if [ -n "$account" ]; then
+      docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 -X DELETE "http://auth-service:8081/api/usuarios/$account" >/dev/null || echo "No se pudo eliminar cuenta temporal $account" >&2
+    fi
+  done
+  exit "$code"
+}
+trap cleanup_privileged EXIT
 at="$(login "$admin")"
 teacher_id="$(curl -fsS -H "Authorization: Bearer $at" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$teacher" --arg p "$pass" '{email:$e,password:$p,role:"ORIENTADOR",active:true}')" "$base/api/usuarios" | jq -er '.id')"
 curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$other" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/register" >/dev/null
@@ -74,6 +87,4 @@ curl -fsS -H "Authorization: Bearer $st" "$base/api/notificaciones/mias" | jq -e
 curl -fsS -X PUT -H "Authorization: Bearer $ot" -H 'Content-Type: application/json' -d '{"estado":"COMPLETADA","resultado":"Orientación de prueba completada","observacion":"Evidencia EP3"}' "$base/api/solicitudes/$id/gestionar" | jq -e '.estado == "COMPLETADA" and .resultado != null' >/dev/null
 curl -fsS -H "Authorization: Bearer $st" "$base/api/solicitudes/mias" | jq -e --argjson id "$id" 'any(.[]; .id==$id and .estado=="COMPLETADA")' >/dev/null
 echo "Notificaciones privadas, lectura persistida y cierre de orientación verificados"
-# Eliminar las cuentas privilegiadas temporales de la prueba, no las cuentas del usuario.
-curl -fsS -X DELETE -H "Authorization: Bearer $at" "$base/api/usuarios/$teacher_id" >/dev/null
-curl -fsS -X DELETE -H "Authorization: Bearer $at" "$base/api/usuarios/$admin_id" >/dev/null
+# La trampa EXIT limpia las cuentas privilegiadas temporales aun si falla el flujo.

@@ -8,6 +8,9 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            connect-timeout: 5000
+            response-timeout: 20s
           routes:
             - id: openapi-auth
               uri: lb://auth-service

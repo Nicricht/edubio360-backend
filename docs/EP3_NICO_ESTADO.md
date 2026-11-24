@@ -1,0 +1,3 @@
+# Validación pendiente de Nico
+
+24-11-2026: frontend integral aprobado (45325735332). Backend d3925e0 aprobó Maven y Snyk, pero Compose falló por HTTP 429 de Maven Central (45325791091). En Swarm (45325791062) los ocho servicios Java respondieron health; la etapa expiró al consultar OpenAPI por Gateway. Se incorporan límites HTTP, diagnóstico de acceso interno y Eureka, reintentos acotados de construcción y limpieza de cuentas temporales. Las pruebas se mantienen obligatorias. Pendiente confirmar resultado, observabilidad y despliegue AWS real, documentos con capturas y video del equipo. No es una declaración de cumplimiento total.

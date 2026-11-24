@@ -2,6 +2,7 @@
 set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 mkdir -p artifacts
+curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 declare -A ports=( [discovery-server]=8761 [auth-service]=8081 [academic-service]=8082 [guidance-service]=8083 [notification-service]=8084 [analytics-service]=8085 [import-service]=8086 [api-gateway]=8080 )
 pending=(discovery-server auth-service academic-service guidance-service notification-service analytics-service import-service api-gateway)
@@ -27,11 +28,20 @@ if (("${#pending[@]}" > 0)); then
   for service in "${pending[@]}"; do docker service ps --no-trunc "edubio_$service" >&2; done
   exit 1
 fi
+echo "Salud interna aprobada; comprobando acceso publicado y rutas Gateway"
+curl -fsS --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 35 "$BASE_URL/actuator/health" | jq -e '.status=="UP"'
 for name in auth academic guidance notification analytics import; do
-  curl -fsS --retry 12 --retry-all-errors --retry-delay 5 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null
+  echo "Validando /openapi/$name"
+  if ! curl -fsS --retry 3 --retry-all-errors --retry-delay 3 --retry-max-time 45 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null; then
+    echo "Error de acceso por Gateway: $name" >&2
+    docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 "http://api-gateway:8080/openapi/$name" > "artifacts/internal-openapi-$name.json" || true
+    docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 -H 'Accept: application/json' http://discovery-server:8761/eureka/apps > artifacts/eureka-registry.json || true
+    exit 1
+  fi
+  echo "OK /openapi/$name"
 done
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/usuarios")" = 401
-curl -fsS --retry 12 --retry-all-errors "$BASE_URL/api/ofertas" | jq -e 'type == "array" and length > 0' >/dev/null
+curl -fsS --retry 3 --retry-all-errors --retry-max-time 45 "$BASE_URL/api/ofertas" | jq -e 'type == "array" and length > 0' >/dev/null
 docker node ls
 docker stack services edubio
 docker service scale edubio_analytics-service=2
@@ -42,7 +52,7 @@ done
 test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "2/2"
 docker service ps edubio_analytics-service
 for i in $(seq 1 15); do
-  curl -fsS --retry 6 --retry-all-errors "$BASE_URL/openapi/analytics" >/dev/null
+  curl -fsS --retry 2 --retry-all-errors --retry-max-time 30 "$BASE_URL/openapi/analytics" >/dev/null
 done
 docker service scale edubio_analytics-service=1
 docker stack services edubio

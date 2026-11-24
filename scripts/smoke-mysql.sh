@@ -2,6 +2,7 @@
 set -euo pipefail
 
 mkdir -p artifacts
+curl() { command curl --connect-timeout 5 --max-time 30 "$@"; }
 
 printf 'commit=%s\nimage_tag=%s\n' "${GITHUB_SHA:-local}" "${IMAGE_TAG:-local}" \
   > artifacts/deployment-trace.txt
@@ -13,7 +14,13 @@ cleanup() {
 trap cleanup EXIT
 
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
-docker compose up -d --build \
+# Reintenta únicamente construcción, sin relajar pruebas ni escaneo.
+for build_attempt in 1 2 3; do
+  if COMPOSE_PARALLEL_LIMIT=2 docker compose build; then break; fi
+  if [ "$build_attempt" = 3 ]; then exit 1; fi
+  sleep "$((build_attempt * 30))"
+done
+docker compose up -d --no-build \
   mysql rabbitmq discovery-server \
   auth-service academic-service guidance-service \
   notification-service analytics-service import-service api-gateway
