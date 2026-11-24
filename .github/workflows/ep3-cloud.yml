@@ -14,7 +14,7 @@ permissions:
   contents: read
 concurrency:
   group: ep3-v2-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'push' && vars.EP3_DEVOPS_AUTO_DEPLOY != 'true' }}
 jobs:
   scope:
     name: Clasificar cambios
@@ -133,6 +133,14 @@ jobs:
           set -o pipefail
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
           bash scripts/ep3/publish-ci-metrics.sh
+      - name: Capturas reales de Grafana
+        timeout-minutes: 5
+        run: |
+          docker run --rm --init --network host --ipc=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp -e GRAFANA_ADMIN_PASSWORD \
+            -v "$PWD/scripts/ep3/grafana-browser.py:/work/grafana-browser.py:ro" \
+            -v "$PWD/artifacts:/work/artifacts" -w /work \
+            edubio360-browser:1.56.0 python /work/grafana-browser.py
       - name: Exportar Swagger y Excel de endpoints
         timeout-minutes: 3
         run: |

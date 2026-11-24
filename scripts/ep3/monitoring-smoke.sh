@@ -49,3 +49,16 @@ check_resources() {
 }
 retry check_resources
 echo 'cAdvisor: CPU y memoria de contenedores presentes'
+
+# Real HTTP request and error counters from the observed services.
+# A zero is reported only when the corresponding request counter exists.
+http_usage='sum by(job) (http_server_requests_seconds_count)'
+http_errors='sum by(job) (http_server_requests_seconds_count{status=~"5.."}) or on(job) (0 * sum by(job) (http_server_requests_seconds_count))'
+check_http_metrics() {
+  prom "$http_usage" > artifacts/prometheus-http-usage.json &&
+    jq -e '.status=="success" and (.data.result|length)>0' artifacts/prometheus-http-usage.json >/dev/null &&
+  prom "$http_errors" > artifacts/prometheus-http-errors.json &&
+    jq -e '.status=="success" and (.data.result|length)>0' artifacts/prometheus-http-errors.json >/dev/null
+}
+retry check_http_metrics
+echo 'Prometheus: contadores HTTP y errores verificados'
