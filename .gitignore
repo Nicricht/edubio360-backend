@@ -9,4 +9,4 @@ target/
 *.log
 __pycache__/
 *.py[cod]
-
+/verified-jars/
