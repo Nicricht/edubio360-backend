@@ -22,7 +22,7 @@ jobs:
     outputs:
       mode: ${{ steps.scope.outputs.mode }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Determinar alcance
@@ -35,7 +35,7 @@ jobs:
     if: needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -82,7 +82,7 @@ jobs:
     env:
       GRAFANA_ADMIN_PASSWORD: ephemeral-ci-grafana-only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Arrancar Grafana con el dashboard real del repositorio
         run: |
           set -euo pipefail
@@ -135,12 +135,12 @@ jobs:
       RABBITMQ_PASSWORD: ephemeral-ci-rabbit-ep3
       JWT_SECRET: ephemeral-ci-jwt-long-key-ep3-not-for-production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with:
           name: ep3-ci-metrics
           path: artifacts
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Nicricht/edubio360-frontend
           ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
@@ -263,7 +263,7 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
       EP3_STACK: edubio-devops-ep3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -297,7 +297,7 @@ jobs:
           RUN python -m pip install --no-cache-dir --retries 5 --timeout 30 playwright==1.56.0
           DOCKERFILE
           docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp edubio360-browser:1.56.0 python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.goto("data:text/html,<title>ready</title>"); assert page.title()=="ready"; b.close(); p.stop()'
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Nicricht/edubio360-frontend
           ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
