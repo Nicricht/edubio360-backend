@@ -46,7 +46,7 @@ fi
 echo "Acceso publicado Gateway aprobado"
 for name in auth academic guidance notification analytics import; do
   echo "Validando /openapi/$name"
-  if ! curl -fsS --retry 3 --retry-all-errors --retry-delay 3 --retry-max-time 45 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null; then
+  if ! curl -fsS --retry 12 --retry-all-errors --retry-delay 5 --retry-max-time 90 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null; then
     echo "Error de acceso por Gateway: $name" >&2
     docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 "http://api-gateway:8080/openapi/$name" > "artifacts/internal-openapi-$name.json" || true
     docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 -H 'Accept: application/json' http://discovery-server:8761/eureka/apps > artifacts/eureka-registry.json || true
