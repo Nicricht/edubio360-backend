@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-base="${BASE_URL:-http://localhost:8080}"
+base="${BASE_URL:-http://127.0.0.1:8080}"
 curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 suffix="$(date +%s)-$RANDOM"

@@ -101,13 +101,13 @@ jobs:
         timeout-minutes: 3
         run: |
           python3 -m pip install openpyxl==3.1.5
-          python3 scripts/ep3/export-api-contracts.py --base http://localhost:8080
+          python3 scripts/ep3/export-api-contracts.py --base http://127.0.0.1:8080
       - name: Prueba Fullstack con Chromium
         timeout-minutes: 8
         run: |
           python3 -m pip install playwright==1.56.0
           python3 -m playwright install --with-deps chromium
-          python3 scripts/ep3/browser-smoke.py
+          FRONTEND_URL=http://127.0.0.1:8088 python3 scripts/ep3/browser-smoke.py
       - name: Guardar diagnóstico
         if: always()
         run: |

@@ -10,7 +10,7 @@
         {
           "target": 80,
           "published": 8088,
-          "mode": "ingress"
+          "mode": "host"
         }
       ],
       "healthcheck": {
@@ -27,7 +27,6 @@
         "retries": 5
       },
       "deploy": {
-        "replicas": 1,
         "resources": {
           "limits": {
             "memory": "128M"
@@ -35,7 +34,8 @@
         },
         "restart_policy": {
           "condition": "any"
-        }
+        },
+        "mode": "global"
       }
     }
   }

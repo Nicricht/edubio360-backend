@@ -31,7 +31,7 @@ retry check_logs
 echo 'Loki: registros de los ocho servicios presentes'
 trace="$(openssl rand -hex 16)"
 parent="$(openssl rand -hex 8)"
-curl -fsS -H "traceparent: 00-$trace-$parent-01" "${BASE_URL:-http://localhost:8080}/api/ofertas" >/dev/null
+curl -fsS -H "traceparent: 00-$trace-$parent-01" "${BASE_URL:-http://127.0.0.1:8080}/api/ofertas" >/dev/null
 check_trace() {
   netcurl -H 'Accept: application/json' "http://tempo:3200/api/traces/$trace" > artifacts/tempo-trace.json &&
     jq -e '[.. | objects | select(.key? == "service.name") | .value.stringValue] | (index("api-gateway") != null and index("academic-service") != null)' artifacts/tempo-trace.json >/dev/null

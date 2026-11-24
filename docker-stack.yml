@@ -443,7 +443,6 @@
         "start_period": "180s"
       },
       "deploy": {
-        "replicas": 1,
         "restart_policy": {
           "condition": "any",
           "delay": "10s"
@@ -460,14 +459,15 @@
           "reservations": {
             "memory": "256M"
           }
-        }
+        },
+        "mode": "global"
       },
       "ports": [
         {
           "target": 8080,
           "published": 8080,
           "protocol": "tcp",
-          "mode": "ingress"
+          "mode": "host"
         }
       ]
     }

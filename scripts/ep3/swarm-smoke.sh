@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:8080}"
 mkdir -p artifacts
 curl() { command curl --connect-timeout 5 --max-time 25 "$@"; }
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
@@ -29,7 +29,15 @@ if (("${#pending[@]}" > 0)); then
   exit 1
 fi
 echo "Salud interna aprobada; comprobando acceso publicado y rutas Gateway"
-curl -fsS --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 35 "$BASE_URL/actuator/health" | jq -e '.status=="UP"'
+if ! curl -fsS --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 35 "$BASE_URL/actuator/health" | jq -e '.status=="UP"'; then
+  echo "Fallo de publicación del Gateway; se guarda evidencia interna y del host" >&2
+  docker service inspect edubio_api-gateway --format '{{json .Endpoint.Ports}}' >&2
+  docker service ps --no-trunc edubio_api-gateway >&2
+  ss -lnt >&2 || true
+  docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 http://api-gateway:8080/actuator/health >&2 || true
+  exit 1
+fi
+echo "Acceso publicado Gateway aprobado"
 for name in auth academic guidance notification analytics import; do
   echo "Validando /openapi/$name"
   if ! curl -fsS --retry 3 --retry-all-errors --retry-delay 3 --retry-max-time 45 "$BASE_URL/openapi/$name" | jq -e '.paths | length > 0' >/dev/null; then

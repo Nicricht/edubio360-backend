@@ -219,7 +219,7 @@
         {
           "target": 3000,
           "published": 3000,
-          "mode": "ingress"
+          "mode": "host"
         }
       ],
       "deploy": {
