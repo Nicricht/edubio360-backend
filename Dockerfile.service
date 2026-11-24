@@ -28,7 +28,7 @@ COPY portable-jars/ /workspace/
 
 FROM ${PACKAGE_STAGE} AS build
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 ENV JAVA_TOOL_OPTIONS="-Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet="
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
