@@ -2,8 +2,11 @@
 set -euo pipefail
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 mkdir -p artifacts
+network="${MONITOR_NETWORK:-edubio_backend}"
+resource_selector='container_label_com_docker_swarm_service_name=~"edubio_.+"'
+if [ "${MONITOR_COMPOSE:-false}" = true ]; then resource_selector='container_label_com_docker_compose_project="edubio360-portable"'; fi
 netcurl() {
-  docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS --max-time 15 "$@"
+  docker run --rm --network "$network" --entrypoint curl "$image" -fsS --max-time 15 "$@"
 }
 retry() {
   local n
@@ -39,9 +42,9 @@ check_trace() {
 retry check_trace
 echo 'Tempo: traza compartida Gateway y Academic'
 check_resources() {
-  prom 'count(container_memory_working_set_bytes{container_label_com_docker_swarm_service_name=~"edubio_.+"})' > artifacts/container-memory.json &&
+  prom "count(container_memory_working_set_bytes{$resource_selector})" > artifacts/container-memory.json &&
     jq -e '(.data.result[0].value[1] | tonumber) > 0' artifacts/container-memory.json >/dev/null &&
-    prom 'count(container_cpu_usage_seconds_total{container_label_com_docker_swarm_service_name=~"edubio_.+"})' > artifacts/container-cpu.json &&
+    prom "count(container_cpu_usage_seconds_total{$resource_selector})" > artifacts/container-cpu.json &&
     jq -e '(.data.result[0].value[1] | tonumber) > 0' artifacts/container-cpu.json >/dev/null
 }
 retry check_resources

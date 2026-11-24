@@ -17,3 +17,11 @@ Si un puerto esta ocupado, libera el puerto o usa otro computador.
 Esta version solo escucha en localhost; no es un despliegue de produccion.
 Las credenciales generadas del paquete son de demostracion, no de AWS.
 No compartas este entorno en una red publica.
+
+MODO OBSERVABILIDAD (opcional, requiere mas memoria y disco)
+INICIAR_MONITOREO.bat agrega Prometheus, Grafana, Loki, Alloy, Tempo,
+cAdvisor y Pushgateway. Grafana: http://localhost:3000 (admin /
+edubio-local-demo, solo local). Incluye cobertura JaCoCo real de CI.
+La duracion de despliegue se mide al iniciar. Los datos de observabilidad
+dependen del soporte de montajes Linux del motor Docker Desktop.
+El modo basico sigue disponible si el host restringe esos montajes.

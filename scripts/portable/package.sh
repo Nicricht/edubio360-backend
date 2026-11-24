@@ -15,6 +15,7 @@ docker pull mysql:8.0
 docker pull rabbitmq:3.13-management
 docker compose -p edubio360-portable -f docker-compose.yml config --no-path-resolution --format json > "$out/compose-build.json"
 python3 scripts/portable/compose.py "$out"
+python3 scripts/portable/monitoring.py "$out"
 rm "$out/compose-build.json"
 cp -r mysql/init "$out/mysql/"
 cp scripts/portable/*.bat scripts/portable/LEEME.txt "$out/"
@@ -28,3 +29,14 @@ for image in "${images[@]}"; do
 done
 docker save "${images[@]}" | gzip -1 > "$out/imagenes-docker/edubio360.tar.gz"
 (cd "$out/imagenes-docker" && sha256sum edubio360.tar.gz > SHA256.txt)
+
+# Additional images are separate from the already validated basic package.
+mapfile -t monitor_images < <(comm -13 <(docker compose -f "$out/compose.json" config --images | sort -u) <(docker compose -f "$out/compose-monitoring.json" config --images | sort -u))
+test "${#monitor_images[@]}" = 7
+for image in "${monitor_images[@]}"; do
+  docker pull "$image"
+  test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = linux/amd64
+done
+docker save "${monitor_images[@]}" | gzip -1 > "$out/imagenes-docker/monitoring.tar.gz"
+(cd "$out/imagenes-docker" && sha256sum monitoring.tar.gz > SHA256-monitoring.txt)
+python3 scripts/ep3/ci-metrics.py > "$out/ci-metrics.prom"

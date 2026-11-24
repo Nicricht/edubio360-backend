@@ -22,6 +22,13 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Generar cobertura real para el dashboard
+        run: mvn -B -ntp clean verify
       - name: Construir paquete portable
         run: bash scripts/portable/package.sh frontend-source EDUBIO360_PORTABLE
       - uses: actions/upload-artifact@v4
@@ -34,7 +41,7 @@ jobs:
   clean-install:
     needs: package
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - name: Preparar navegador de verificacion
@@ -56,6 +63,8 @@ jobs:
           path: EDUBIO360_PORTABLE
       - name: Instalacion limpia sin descargar imagenes
         run: bash scripts/portable/verify.sh EDUBIO360_PORTABLE
+      - name: Instalacion limpia del modo observabilidad
+        run: bash scripts/portable/verify-monitoring.sh EDUBIO360_PORTABLE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
