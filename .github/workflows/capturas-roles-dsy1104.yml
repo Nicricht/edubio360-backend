@@ -60,7 +60,7 @@ jobs:
           export PASS="$pass"
           mkdir -p capturas
           python3 - <<'PY'
-          import json, os, subprocess, time, urllib.request
+          import json, os, subprocess, time, urllib.request, urllib.error
           from pathlib import Path
           base="http://127.0.0.1:8080"
           pw=os.environ["PASS"]
@@ -79,8 +79,35 @@ jobs:
           post("/api/usuarios",{"email":"orientador.evidencia@example.test","password":pw,"role":"ORIENTADOR","active":True},a)
           post("/api/auth/register",{"email":"estudiante.evidencia@example.test","password":pw})
           st=post("/api/auth/login",{"email":"estudiante.evidencia@example.test","password":pw})["token"]
+          # Las cuentas ya existen. Una solicitud de ejemplo no debe bloquear las capturas.
           from datetime import datetime,timedelta
-          post("/api/solicitudes",{"ofertaId":1,"motivo":"Orientación académica de prueba","fechaHora":(datetime.now()+timedelta(days=2)).isoformat(timespec="seconds")},st)
+          def get(path,token=None):
+              headers={"Authorization":"Bearer "+token} if token else {}
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers),timeout=15) as r:
+                  return json.load(r)
+          motif="Orientación académica de prueba"
+          fixture={"created":False}
+          for attempt in range(12):
+              try:
+                  existing=next((x for x in get("/api/solicitudes/mias",st) if x.get("motivo")==motif),None)
+                  if existing:
+                      fixture={"created":True,"id":existing["id"]}
+                      break
+                  offer=get("/api/ofertas")[0]["id"]
+                  get("/api/ofertas/"+str(offer))
+                  result=post("/api/solicitudes",{"ofertaId":offer,"motivo":motif,"fechaHora":(datetime.now()+timedelta(days=2)).isoformat(timespec="seconds")},st)
+                  fixture={"created":True,"id":result["id"],"ofertaId":offer}
+                  break
+              except urllib.error.HTTPError as e:
+                  fixture={"created":False,"status":e.code,"path":e.url}
+                  print("Solicitud de ejemplo: HTTP",e.code,"intento",attempt+1,flush=True)
+                  if e.code not in (502,503,504):
+                      break
+              except (urllib.error.URLError,TimeoutError) as e:
+                  fixture={"created":False,"error":type(e).__name__}
+              time.sleep(10)
+          Path("capturas/resultado-solicitud-ejemplo.json").write_text(json.dumps(fixture,indent=2))
+          print("Cuentas de los tres roles creadas; solicitud de ejemplo:",fixture["created"],flush=True)
           PY
           printf 'CAPTURE_PASS=%s\n' "$pass" >> "$GITHUB_ENV"
       - name: Capturas reales de los tres roles y comparador
@@ -125,7 +152,7 @@ jobs:
                   page.screenshot(path=str(out/"catalogo-cargado.png"))
                   buttons.nth(0).click()
                   buttons.nth(1).click()
-                  page.get_by_role("link",name="Comparar",exact=False).first.click()
+                  page.goto(base+"/comparar",wait_until="domcontentloaded")
                   expect(page.locator(".compare-card").nth(1)).to_be_visible(timeout=15000)
                   page.screenshot(path=str(out/"comparacion-dos-ofertas.png"))
                   results.append({"route":"/comparar","file":"comparacion-dos-ofertas.png"})
@@ -133,7 +160,7 @@ jobs:
               browser.close()
           (out/"resultado-roles.json").write_text(json.dumps(results,ensure_ascii=False,indent=2))
           print(json.dumps(results,ensure_ascii=False))
-          if not any("file" in r for r in results):raise SystemExit(1)
+          if not all(any(r.get("file")==f for r in results) for f in ("perfil-estudiante.png","panel-orientador.png","panel-admin.png")):raise SystemExit("Faltan capturas esenciales de roles")
           PY
           docker run --rm --network host -e CAPTURE_PASS -v "$PWD/capturas:/evidence" -v /tmp/captura-roles.py:/tmp/captura-roles.py:ro mcr.microsoft.com/playwright/python:v1.56.0-noble sh -c 'pip install --quiet playwright==1.56.0 && python /tmp/captura-roles.py'
       - name: Diagnóstico de arranque
