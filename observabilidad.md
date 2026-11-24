@@ -39,3 +39,9 @@ En la rama nueva, commit 76a13756651665a1cd10a4743a381f6ff46b444b, [DevSecOps 45
 
 ## Integración y revisión
 Configuración: docker-stack.monitoring.yml, observability/, scripts/ep3/monitoring-smoke.sh, scripts/ep3/publish-ci-metrics.sh, scripts/ep3/grafana-browser.py y .github/workflows/ep3-cloud.yml. Los artefactos se generan en CI; incorporar resultados de la última ejecución exitosa y capturas reales al cierre. El análisis técnico, las decisiones y las reflexiones individuales deben ser redactados por los estudiantes. Declarar y citar el uso real de IA según la pauta: https://bibliotecas.duoc.cl/ia.
+
+## Validación de la nueva rama (981b5517)
+
+[Run 45485036677](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036677): verificación, Swarm, escalamiento, flujo de negocio y observabilidad aprobaron. Prometheus confirmó contadores HTTP y errores; las métricas CI/CD se verificaron. La etapa de captura gráfica falló al buscar el campo de usuario de Grafana, por lo que Swagger y Chromium posteriores se omitieron. [Artefacto con evidencia de esa ejecución parcial](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036677/artifacts/14962549960). [DevSecOps del mismo commit aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036599).
+
+Corrección: acceso a Grafana por la red overlay privada, autenticación de sesión mediante API, comprobación de usuario y dashboard y capturas reales de siete paneles. Pendiente de nueva ejecución exitosa. No representa certificación AWS.

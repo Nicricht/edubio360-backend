@@ -135,10 +135,11 @@ jobs:
           bash scripts/ep3/publish-ci-metrics.sh
           python3 scripts/ep3/observability-report.py > artifacts/observability-summary.json
       - name: Capturas reales de Grafana
-        timeout-minutes: 5
+        timeout-minutes: 8
         run: |
-          docker run --rm --init --network host --ipc=host \
+          docker run --rm --init --network edubio_backend --ipc=host \
             --user "$(id -u):$(id -g)" -e HOME=/tmp -e GRAFANA_ADMIN_PASSWORD \
+            -e GRAFANA_URL=http://grafana:3000 \
             -v "$PWD/scripts/ep3/grafana-browser.py:/work/grafana-browser.py:ro" \
             -v "$PWD/artifacts:/work/artifacts" -w /work \
             edubio360-browser:1.56.0 python /work/grafana-browser.py
