@@ -133,6 +133,7 @@ jobs:
           set -o pipefail
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
           bash scripts/ep3/publish-ci-metrics.sh
+          python3 scripts/ep3/observability-report.py > artifacts/observability-summary.json
       - name: Capturas reales de Grafana
         timeout-minutes: 5
         run: |

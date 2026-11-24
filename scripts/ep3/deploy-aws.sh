@@ -37,7 +37,7 @@ token="$(remote "$manager" 'docker swarm join-token -q worker')"
 echo "::add-mask::$token"
 remote "$worker" "if [ \$(docker info --format '{{.Swarm.LocalNodeState}}') = inactive ]; then docker swarm join --token '$token' '$ip:2377' >/dev/null; fi"
 # Archivos de definición del commit, no se copian credenciales desde el runner.
-bundle="$(tar -czf - docker-stack.yml docker-stack.monitoring.yml docker-stack.frontend.yml observability cloud/docker-stack.cloud.yml mysql/init/01-create-databases.sql scripts/ep3/swarm-deploy.sh scripts/ep3/swarm-smoke.sh scripts/ep3/flow.sh scripts/ep3/monitoring-smoke.sh scripts/ep3/publish-ci-metrics.sh artifacts/ci-metrics.prom | base64 -w0)"
+bundle="$(tar -czf - docker-stack.yml docker-stack.monitoring.yml docker-stack.frontend.yml observability cloud/docker-stack.cloud.yml mysql/init/01-create-databases.sql scripts/ep3/swarm-deploy.sh scripts/ep3/swarm-smoke.sh scripts/ep3/flow.sh scripts/ep3/monitoring-smoke.sh scripts/ep3/publish-ci-metrics.sh scripts/ep3/observability-report.py artifacts/ci-metrics.prom | base64 -w0)"
 remote "$manager" "mkdir -p /opt/edubio; cd /opt/edubio; echo '$bundle' | base64 -d | tar -xzf -;
 umask 077
 if [ ! -s .secrets ]; then
@@ -58,4 +58,7 @@ bash scripts/ep3/swarm-smoke.sh
 bash scripts/ep3/flow.sh
 bash scripts/ep3/monitoring-smoke.sh
 DEPLOY_DURATION_SECONDS=\$((\$(date +%s)-started)) bash scripts/ep3/publish-ci-metrics.sh" | tee artifacts/cloud-deploy.txt
+# Read only the compact, explicitly scoped result of the completed run.
+remote "$manager" "cd /opt/edubio; EP3_CLOUD=true IMAGE_TAG='$IMAGE_TAG' python3 scripts/ep3/observability-report.py" > artifacts/aws-observability-summary.json
+jq -e --arg sha "$IMAGE_TAG" '.environment=="aws" and .commit==$sha and (.services|length)==8 and .serverless_receipt.estado=="CONSTANCIA_GENERADA"' artifacts/aws-observability-summary.json >/dev/null
 echo "HTTPS API: $api" | tee -a artifacts/cloud-deploy.txt
