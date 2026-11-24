@@ -20,6 +20,11 @@ curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$other" --ar
 other_token="$(login "$other")"
 
 st="$(login "$student")"; ot="$(login "$teacher")"
+renewed="$(curl -fsS -X POST -H "Authorization: Bearer $st" "$base/api/auth/refresh" | jq -er '.token')"
+test "$st" != "$renewed"
+st="$renewed"
+curl -fsS -H "Authorization: Bearer $st" "$base/api/auth/me" | jq -e --arg e "$student" '.email==$e and .role=="STUDENT"' >/dev/null
+echo "Renovación JWT validada en el Gateway"
 test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $st" "$base/api/usuarios")" = 403
 test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $st" -H 'X-User-Role: ADMIN' "$base/api/usuarios")" = 403
 curl -fsS -H "Authorization: Bearer $st" "$base/api/auth/me" | jq -e --arg e "$student" '.email == $e and .role == "STUDENT"' >/dev/null

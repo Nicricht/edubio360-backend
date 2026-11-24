@@ -8,8 +8,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ep3-${{ github.ref }}
-  cancel-in-progress: false
+  group: ep3-v2-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -65,25 +65,45 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: ac68fd6dac5ca8c43d49f8b7d868defe85a30821
+          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
       - name: Construir todas las imágenes
         run: |
           bash scripts/ep3/build-images.sh
           docker build -t "$IMAGE_PREFIX/frontend:$IMAGE_TAG" frontend-source
-      - name: Swarm y prueba integrada local
+      - name: Inicializar y desplegar Swarm
+        timeout-minutes: 6
         run: |
           set -o pipefail
           mkdir -p artifacts
           bash scripts/ep3/swarm-init.sh manager "$(hostname -I | awk '{print $1}')"
           docker stack config -c docker-stack.yml >/dev/null
-          started=$(date +%s)
+          echo "DEPLOY_STARTED=$(date +%s)" >> "$GITHUB_ENV"
           bash scripts/ep3/swarm-deploy.sh
+      - name: Salud y escalamiento de servicios
+        timeout-minutes: 13
+        run: |
+          set -o pipefail
           bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt
+          echo "DEPLOY_DURATION_SECONDS=$(($(date +%s)-DEPLOY_STARTED))" >> "$GITHUB_ENV"
+      - name: Flujo de negocio y autorización
+        timeout-minutes: 6
+        run: |
+          set -o pipefail
           bash scripts/ep3/flow.sh | tee artifacts/flow.txt
+      - name: Observabilidad completa
+        timeout-minutes: 18
+        run: |
+          set -o pipefail
           bash scripts/ep3/monitoring-smoke.sh | tee artifacts/monitoring.txt
-          DEPLOY_DURATION_SECONDS=$(($(date +%s)-started)) bash scripts/ep3/publish-ci-metrics.sh
+          bash scripts/ep3/publish-ci-metrics.sh
+      - name: Exportar Swagger y Excel de endpoints
+        timeout-minutes: 3
+        run: |
+          python3 -m pip install openpyxl==3.1.5
+          python3 scripts/ep3/export-api-contracts.py --base http://localhost:8080
       - name: Prueba Fullstack con Chromium
+        timeout-minutes: 8
         run: |
           python3 -m pip install playwright==1.56.0
           python3 -m playwright install --with-deps chromium
@@ -94,7 +114,8 @@ jobs:
           mkdir -p artifacts
           docker stack services edubio > artifacts/services.txt 2>&1 || true
           for s in $(docker stack services edubio --format '{{.Name}}' 2>/dev/null); do
-            docker service logs --tail 80 "$s" >> artifacts/swarm-logs.txt 2>&1 || true
+            docker service ps --no-trunc "$s" >> artifacts/swarm-tasks.txt 2>&1 || true
+            timeout 20s docker service logs --tail 80 "$s" >> artifacts/swarm-logs.txt 2>&1 || true
           done
           docker stack rm edubio || true
       - uses: actions/upload-artifact@v4
@@ -169,7 +190,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: ac68fd6dac5ca8c43d49f8b7d868defe85a30821
+          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
       - name: Construir y publicar imágenes en ECR
         run: |

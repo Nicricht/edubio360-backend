@@ -7,17 +7,9 @@ loki.source.file "docker" {
 }
 loki.process "docker" {
   stage.json {
-    expressions = { attrs = "" }
+    expressions = { service = "attrs.edubio_service" }
   }
   stage.docker {}
-  stage.json {
-    source = "attrs"
-    expressions = { tag = "" }
-  }
-  stage.regex {
-    source = "tag"
-    expression = "^edubio_(?P<service>[^.]+)[.]"
-  }
   stage.labels {
     values = { service = "" }
   }

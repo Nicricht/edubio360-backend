@@ -3,7 +3,7 @@ set -euo pipefail
 case "${1:-}" in
   manager)
     if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" = inactive ]; then
-      if [ -n "${2:-}" ]; then docker swarm init --advertise-addr "$2"; else docker swarm init; fi
+      if [ -n "${2:-}" ]; then docker swarm init --advertise-addr "$2" >/dev/null; else docker swarm init >/dev/null; fi
     fi
     docker node ls
     ;;

@@ -13,8 +13,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "discovery-server"
       }
     },
     "auth-service": {
@@ -29,8 +32,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "auth-service"
       }
     },
     "academic-service": {
@@ -45,8 +51,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "academic-service"
       }
     },
     "guidance-service": {
@@ -61,8 +70,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "guidance-service"
       }
     },
     "notification-service": {
@@ -77,8 +89,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "notification-service"
       }
     },
     "analytics-service": {
@@ -93,8 +108,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "analytics-service"
       }
     },
     "import-service": {
@@ -109,8 +127,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "import-service"
       }
     },
     "api-gateway": {
@@ -125,8 +146,11 @@
         "options": {
           "max-size": "10m",
           "max-file": "3",
-          "tag": "{{.Name}}"
+          "labels": "edubio_service"
         }
+      },
+      "labels": {
+        "edubio_service": "api-gateway"
       }
     },
     "prometheus": {
