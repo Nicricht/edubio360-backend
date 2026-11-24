@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
+          ref: 5c8635058838139436471dc62bbd342950ca25e6
           path: frontend-source
       - name: Preparar Chromium reproducible
         timeout-minutes: 18
@@ -241,7 +241,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: e6af62b78e95c6d8cda602957fe8be01a794c971
+          ref: 5c8635058838139436471dc62bbd342950ca25e6
           path: frontend-source
       - name: Construir y publicar imágenes en ECR
         run: |
