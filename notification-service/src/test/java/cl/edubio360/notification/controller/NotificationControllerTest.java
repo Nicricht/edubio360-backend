@@ -26,6 +26,14 @@ class NotificationControllerTest {
     @MockitoBean NotificationService service;
 
     @Test
+    void consultaYMarcaPropias() throws Exception {
+        when(service.propias("student@example.test")).thenReturn(List.of());
+        mvc.perform(get("/api/notificaciones/mias").header("X-User-Email", "student@example.test")).andExpect(status().isOk());
+        mvc.perform(put("/api/notificaciones/mias/leidas").header("X-User-Email", "student@example.test")).andExpect(status().isNoContent());
+        verify(service).marcarPropiasLeidas("student@example.test");
+    }
+
+    @Test
     void crudYErroresHttp() throws Exception {
         Notificacion entity = new Notificacion("ORIENTACION", "student@example.test", "Mensaje");
         when(service.listar()).thenReturn(List.of(entity));

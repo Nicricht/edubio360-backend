@@ -55,6 +55,14 @@ class NotificationServiceTest {
     }
 
     @Test
+    void consultaYMarcaSoloPropias() {
+        when(repository.findByDestinatarioIgnoreCaseOrderByCreatedAtDesc("student@example.test")).thenReturn(List.of(entity));
+        assertEquals(1, service.propias("student@example.test").size());
+        service.marcarPropiasLeidas("student@example.test");
+        assertTrue(entity.isLeida());
+    }
+
+    @Test
     void notFound() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
         assertThrows(ResponseStatusException.class, () -> service.obtener(99L));

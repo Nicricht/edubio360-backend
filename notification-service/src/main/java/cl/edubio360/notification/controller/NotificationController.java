@@ -21,6 +21,13 @@ public class NotificationController {
     @GetMapping
     public List<Notificacion> listar() { return service.listar(); }
 
+    @GetMapping("/mias")
+    public List<Notificacion> propias(@RequestHeader("X-User-Email") String email) { return service.propias(email); }
+
+    @PutMapping("/mias/leidas")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void marcarLeidas(@RequestHeader("X-User-Email") String email) { service.marcarPropiasLeidas(email); }
+
     @GetMapping("/{id}")
     public Notificacion obtener(@PathVariable Long id) { return service.obtener(id); }
 

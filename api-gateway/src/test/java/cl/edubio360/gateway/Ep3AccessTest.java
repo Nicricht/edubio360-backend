@@ -84,6 +84,15 @@ class Ep3AccessTest {
         verifyNoInteractions(chain);
     }
 
+    @Test void permisosDeOrientacionYNotificaciones() {
+        assertTrue(JwtGlobalFilter.permitted("/api/notificaciones/mias", "GET", "STUDENT"));
+        assertTrue(JwtGlobalFilter.permitted("/api/notificaciones/mias/leidas", "PUT", "STUDENT"));
+        assertFalse(JwtGlobalFilter.permitted("/api/notificaciones/1", "GET", "STUDENT"));
+        assertFalse(JwtGlobalFilter.permitted("/api/solicitudes", "GET", "ORIENTADOR"));
+        assertTrue(JwtGlobalFilter.permitted("/api/solicitudes/disponibles", "GET", "ORIENTADOR"));
+        assertTrue(JwtGlobalFilter.permitted("/api/solicitudes", "GET", "ADMIN"));
+    }
+
     @Test void estudianteNoElevaSuRol() {
         assertFalse(JwtGlobalFilter.permitted("/api/usuarios/1", "PUT", "STUDENT"));
         assertFalse(JwtGlobalFilter.permitted("/api/usuarios", "POST", "STUDENT"));

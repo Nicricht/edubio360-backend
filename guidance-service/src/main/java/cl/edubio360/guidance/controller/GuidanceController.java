@@ -53,6 +53,26 @@ public class GuidanceController {
         service.eliminar(id, email, role);
     }
 
+    @GetMapping("/disponibles")
+    public List<SolicitudOrientacion> disponibles(@RequestHeader("X-User-Email") String email,
+                                                  @RequestHeader("X-User-Role") String role) {
+        return service.disponibles(email, role);
+    }
+
+    @PutMapping("/{id}/reprogramar")
+    public SolicitudOrientacion reprogramar(@PathVariable Long id, @RequestHeader("X-User-Email") String email,
+                                            @RequestHeader("X-User-Role") String role,
+                                            @Valid @RequestBody ActualizarSolicitudRequest request) {
+        return service.reprogramar(id, email, role, request);
+    }
+
+    @PutMapping("/{id}/gestionar")
+    public SolicitudOrientacion gestionar(@PathVariable Long id, @RequestHeader("X-User-Email") String email,
+                                          @RequestHeader("X-User-Role") String role,
+                                          @Valid @RequestBody cl.edubio360.guidance.dto.GestionSolicitudRequest request) {
+        return service.gestionar(id, email, role, request);
+    }
+
     @GetMapping("/mias")
     public List<SolicitudOrientacion> mias(@RequestHeader("X-User-Email") String email,
                                            @RequestHeader("X-User-Role") String role) {

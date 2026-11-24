@@ -141,6 +141,26 @@ class GuidanceServiceTest {
     }
 
     @Test
+    void guardaComparacionYGestionaConPropiedad() {
+        var fecha = LocalDateTime.now().plusDays(2);
+        when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        var nueva = service.crear("student@example.test", "STUDENT", new CrearSolicitudRequest(1L, "Motivo", fecha, List.of(1L, 2L)));
+        assertEquals(java.util.Set.of(1L, 2L), nueva.getOfertasComparadas());
+        when(repository.findById(1L)).thenReturn(Optional.of(solicitud));
+        when(repository.findAll()).thenReturn(List.of(solicitud));
+        assertEquals(1, service.disponibles("orientador@example.test", "ORIENTADOR").size());
+        var update = new ActualizarSolicitudRequest("Motivo", fecha);
+        assertEquals("REPROGRAMADA", service.reprogramar(1L, "student@example.test", "STUDENT", update).getEstado());
+        solicitud.confirmar("orientador@example.test");
+        var gestion = new cl.edubio360.guidance.dto.GestionSolicitudRequest("COMPLETADA", null, "Resultado", "Observación");
+        assertThrows(ResponseStatusException.class, () -> service.gestionar(1L, "otro@example.test", "ORIENTADOR", gestion));
+        assertTrue(service.disponibles("otro@example.test", "ORIENTADOR").isEmpty());
+        assertEquals("COMPLETADA", service.gestionar(1L, "orientador@example.test", "ORIENTADOR", gestion).getEstado());
+        assertThrows(ResponseStatusException.class, () -> service.gestionar(1L, "orientador@example.test", "ORIENTADOR", gestion));
+        assertThrows(ResponseStatusException.class, () -> service.reprogramar(1L, "student@example.test", "STUDENT", update));
+    }
+
+    @Test
     void rechazaRolNulo() {
         CrearSolicitudRequest request = new CrearSolicitudRequest(
                 1L, "Motivo", LocalDateTime.now().plusDays(1));

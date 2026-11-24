@@ -4,6 +4,7 @@ import cl.edubio360.guidance.AcademicValidationService;
 import cl.edubio360.guidance.RabbitConfig;
 import cl.edubio360.guidance.dto.ActualizarSolicitudRequest;
 import cl.edubio360.guidance.dto.CrearSolicitudRequest;
+import cl.edubio360.guidance.dto.GestionSolicitudRequest;
 import cl.edubio360.guidance.model.SolicitudOrientacion;
 import cl.edubio360.guidance.repository.SolicitudRepository;
 import tools.jackson.core.JacksonException;
@@ -46,7 +47,12 @@ public class GuidanceService {
     public SolicitudOrientacion crear(String email, String role, CrearSolicitudRequest request) {
         requireRole(role, "STUDENT");
         academicValidation.validarOferta(request.ofertaId());
-        return solicitudes.save(new SolicitudOrientacion(email, request.ofertaId(), request.motivo(), request.fechaHora()));
+        SolicitudOrientacion nueva = new SolicitudOrientacion(email, request.ofertaId(), request.motivo(), request.fechaHora());
+        if (request.ofertasComparadas() != null) {
+            request.ofertasComparadas().forEach(academicValidation::validarOferta);
+            nueva.guardarComparadas(request.ofertasComparadas());
+        }
+        return solicitudes.save(nueva);
     }
 
     @Transactional
@@ -98,6 +104,40 @@ public class GuidanceService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage());
         }
         publicarConfirmacion(solicitud);
+        return solicitud;
+    }
+
+    public List<SolicitudOrientacion> disponibles(String email, String role) {
+        requireRole(role, "ORIENTADOR");
+        return solicitudes.findAll().stream().filter(s -> email.equalsIgnoreCase(s.getOrientadorEmail())
+                || (s.getOrientadorEmail() == null && List.of("PENDIENTE", "REPROGRAMADA").contains(s.getEstado()))).toList();
+    }
+
+    @Transactional
+    public SolicitudOrientacion reprogramar(Long id, String email, String role, ActualizarSolicitudRequest request) {
+        requireRole(role, "STUDENT");
+        SolicitudOrientacion solicitud = get(id);
+        ensureOwner(solicitud, email);
+        try {
+            solicitud.reprogramar(request.fechaHora());
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage());
+        }
+        return solicitud;
+    }
+
+    @Transactional
+    public SolicitudOrientacion gestionar(Long id, String email, String role, GestionSolicitudRequest request) {
+        requireRole(role, "ORIENTADOR");
+        SolicitudOrientacion solicitud = get(id);
+        if (!email.equalsIgnoreCase(solicitud.getOrientadorEmail())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solicitud no asignada al orientador");
+        }
+        try {
+            solicitud.gestionar(request.estado(), request.fechaHora(), request.resultado(), request.observacion());
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage());
+        }
         return solicitud;
     }
 

@@ -72,6 +72,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
         if (!java.util.Set.of("STUDENT", "ORIENTADOR", "ADMIN").contains(role == null ? "" : role)) {
             return false;
         }
+        if (path.equals("/api/notificaciones/mias") && "GET".equals(method)) return true;
+        if (path.equals("/api/notificaciones/mias/leidas") && "PUT".equals(method)) return true;
         if (path.startsWith("/api/usuarios") || path.startsWith("/api/importaciones")
                 || path.startsWith("/api/notificaciones")) {
             return "ADMIN".equals(role);
@@ -81,9 +83,10 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 && !"GET".equals(method)) {
             return "ADMIN".equals(role);
         }
-        if (path.startsWith("/api/solicitudes") && "GET".equals(method)
-                && "STUDENT".equals(role)) {
-            return path.equals("/api/solicitudes/mias");
+        if (path.startsWith("/api/solicitudes") && "GET".equals(method)) {
+            if ("STUDENT".equals(role)) return path.equals("/api/solicitudes/mias");
+            if ("ORIENTADOR".equals(role)) return path.equals("/api/solicitudes/disponibles");
+            return "ADMIN".equals(role);
         }
         return true;
     }

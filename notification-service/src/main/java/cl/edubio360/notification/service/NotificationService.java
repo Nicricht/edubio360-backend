@@ -50,6 +50,15 @@ public class NotificationService {
         return repository.save(entity);
     }
 
+    public List<Notificacion> propias(String email) {
+        return repository.findByDestinatarioIgnoreCaseOrderByCreatedAtDesc(email);
+    }
+
+    @Transactional
+    public void marcarPropiasLeidas(String email) {
+        propias(email).forEach(Notificacion::marcarLeida);
+    }
+
     private Notificacion get(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificación no encontrada"));
