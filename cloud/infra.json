@@ -1,0 +1,829 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EduBio360 EP3: Swarm, HTTPS API Gateway, SQS y Lambda",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t3.large"
+    },
+    "Ami": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.53.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true
+      }
+    },
+    "Internet": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {}
+    },
+    "Attach": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "InternetGatewayId": {
+          "Ref": "Internet"
+        }
+      }
+    },
+    "RouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    },
+    "Route": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "Internet"
+        }
+      },
+      "DependsOn": "Attach"
+    },
+    "Subnet0": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.53.1.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": true
+      }
+    },
+    "Association0": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet0"
+        },
+        "RouteTableId": {
+          "Ref": "RouteTable"
+        }
+      }
+    },
+    "Subnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.53.2.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": true
+      }
+    },
+    "Association1": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet1"
+        },
+        "RouteTableId": {
+          "Ref": "RouteTable"
+        }
+      }
+    },
+    "LinkSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "GroupDescription": "API Gateway VPC Link"
+      }
+    },
+    "AlbSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "GroupDescription": "ALB interno",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "SourceSecurityGroupId": {
+              "Ref": "LinkSG"
+            }
+          }
+        ]
+      }
+    },
+    "NodeSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "GroupDescription": "Swarm sin acceso directo desde Internet",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "SourceSecurityGroupId": {
+              "Ref": "AlbSG"
+            }
+          }
+        ]
+      }
+    },
+    "IngressManager": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "NodeSG"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "NodeSG"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 2377,
+        "ToPort": 2377
+      }
+    },
+    "IngressGossipTcp": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "NodeSG"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "NodeSG"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 7946,
+        "ToPort": 7946
+      }
+    },
+    "IngressGossipUdp": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "NodeSG"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "NodeSG"
+        },
+        "IpProtocol": "udp",
+        "FromPort": 7946,
+        "ToPort": 7946
+      }
+    },
+    "IngressOverlay": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "NodeSG"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "NodeSG"
+        },
+        "IpProtocol": "udp",
+        "FromPort": 4789,
+        "ToPort": 4789
+      }
+    },
+    "DeadLetter": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "SqsManagedSseEnabled": true
+      }
+    },
+    "Queue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "VisibilityTimeout": 180,
+        "MessageRetentionPeriod": 345600,
+        "SqsManagedSseEnabled": true,
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": [
+              "DeadLetter",
+              "Arn"
+            ]
+          },
+          "maxReceiveCount": 5
+        }
+      }
+    },
+    "Receipts": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "eventId",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "eventId",
+            "KeyType": "HASH"
+          }
+        ],
+        "SSESpecification": {
+          "SSEEnabled": true
+        }
+      }
+    },
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          }
+        ],
+        "Policies": [
+          {
+            "PolicyName": "ConsumeAndRecord",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Queue",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Receipts",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ReceiptFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Runtime": "python3.12",
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Timeout": 25,
+        "MemorySize": 128,
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "Receipts"
+            }
+          }
+        },
+        "Code": {
+          "ZipFile": "# replaced by provision script"
+        }
+      }
+    },
+    "ReceiptLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/lambda/${ReceiptFunction}"
+        },
+        "RetentionInDays": 7
+      }
+    },
+    "Mapping": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "Queue",
+            "Arn"
+          ]
+        },
+        "FunctionName": {
+          "Ref": "ReceiptFunction"
+        },
+        "BatchSize": 5,
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures"
+        ],
+        "Enabled": true
+      }
+    },
+    "NodeRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          },
+          {
+            "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+          }
+        ],
+        "Policies": [
+          {
+            "PolicyName": "SendOrientationEvents",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Queue",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:GetItem",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Receipts",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NodeProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "NodeRole"
+          }
+        ]
+      }
+    },
+    "Manager": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SubnetId": {
+          "Ref": "Subnet0"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "NodeSG"
+          }
+        ],
+        "IamInstanceProfile": {
+          "Ref": "NodeProfile"
+        },
+        "MetadataOptions": {
+          "HttpTokens": "required",
+          "HttpPutResponseHopLimit": 2
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeSize": 30,
+              "VolumeType": "gp3",
+              "Encrypted": true,
+              "DeleteOnTermination": true
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nset -eux\ndnf install -y docker jq openssl\nsystemctl enable --now docker\nmkdir -p /opt/edubio\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "edubio-ep3-manager"
+          }
+        ]
+      },
+      "DependsOn": "Route"
+    },
+    "Worker": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SubnetId": {
+          "Ref": "Subnet1"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "NodeSG"
+          }
+        ],
+        "IamInstanceProfile": {
+          "Ref": "NodeProfile"
+        },
+        "MetadataOptions": {
+          "HttpTokens": "required",
+          "HttpPutResponseHopLimit": 2
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeSize": 30,
+              "VolumeType": "gp3",
+              "Encrypted": true,
+              "DeleteOnTermination": true
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": "#!/bin/bash\nset -eux\ndnf install -y docker jq openssl\nsystemctl enable --now docker\nmkdir -p /opt/edubio\n"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "edubio-ep3-worker"
+          }
+        ]
+      },
+      "DependsOn": "Route"
+    },
+    "Alb": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Scheme": "internal",
+        "Type": "application",
+        "Subnets": [
+          {
+            "Ref": "Subnet0"
+          },
+          {
+            "Ref": "Subnet1"
+          }
+        ],
+        "SecurityGroups": [
+          {
+            "Ref": "AlbSG"
+          }
+        ]
+      }
+    },
+    "Targets": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Port": 8080,
+        "Protocol": "HTTP",
+        "TargetType": "instance",
+        "HealthCheckPath": "/actuator/health",
+        "Targets": [
+          {
+            "Id": {
+              "Ref": "Manager"
+            }
+          },
+          {
+            "Id": {
+              "Ref": "Worker"
+            }
+          }
+        ]
+      }
+    },
+    "Listener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "LoadBalancerArn": {
+          "Ref": "Alb"
+        },
+        "Port": 8080,
+        "Protocol": "HTTP",
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "Targets"
+            }
+          }
+        ]
+      }
+    },
+    "Link": {
+      "Type": "AWS::ApiGatewayV2::VpcLink",
+      "Properties": {
+        "Name": "edubio-ep3",
+        "SubnetIds": [
+          {
+            "Ref": "Subnet0"
+          },
+          {
+            "Ref": "Subnet1"
+          }
+        ],
+        "SecurityGroupIds": [
+          {
+            "Ref": "LinkSG"
+          }
+        ]
+      }
+    },
+    "Api": {
+      "Type": "AWS::ApiGatewayV2::Api",
+      "Properties": {
+        "Name": "edubio-ep3",
+        "ProtocolType": "HTTP"
+      }
+    },
+    "Integration": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "Api"
+        },
+        "IntegrationType": "HTTP_PROXY",
+        "IntegrationMethod": "ANY",
+        "ConnectionType": "VPC_LINK",
+        "ConnectionId": {
+          "Ref": "Link"
+        },
+        "IntegrationUri": {
+          "Ref": "Listener"
+        },
+        "PayloadFormatVersion": "1.0",
+        "RequestParameters": {
+          "overwrite:path": "$request.path"
+        }
+      }
+    },
+    "RouteApi": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "Api"
+        },
+        "RouteKey": "ANY /{proxy+}",
+        "Target": {
+          "Fn::Sub": "integrations/${Integration}"
+        }
+      }
+    },
+    "Stage": {
+      "Type": "AWS::ApiGatewayV2::Stage",
+      "Properties": {
+        "ApiId": {
+          "Ref": "Api"
+        },
+        "StageName": "$default",
+        "AutoDeploy": true,
+        "DefaultRouteSettings": {
+          "ThrottlingBurstLimit": 40,
+          "ThrottlingRateLimit": 20
+        }
+      }
+    },
+    "EcrDiscoveryServer": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/discovery-server",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrAuthService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/auth-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrAcademicService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/academic-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrGuidanceService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/guidance-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrNotificationService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/notification-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrAnalyticsService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/analytics-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrImportService": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/import-service",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrApiGateway": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/api-gateway",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    },
+    "EcrCloudEventBridge": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "edubio-ep3/cloud-event-bridge",
+        "ImageScanningConfiguration": {
+          "ScanOnPush": true
+        },
+        "EmptyOnDelete": true,
+        "LifecyclePolicy": {
+          "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "Manager": {
+      "Value": {
+        "Ref": "Manager"
+      }
+    },
+    "Worker": {
+      "Value": {
+        "Ref": "Worker"
+      }
+    },
+    "ManagerIp": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Manager",
+          "PrivateIp"
+        ]
+      }
+    },
+    "QueueUrl": {
+      "Value": {
+        "Ref": "Queue"
+      }
+    },
+    "ReceiptTable": {
+      "Value": {
+        "Ref": "Receipts"
+      }
+    },
+    "FunctionName": {
+      "Value": {
+        "Ref": "ReceiptFunction"
+      }
+    },
+    "ApiUrl": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Api",
+          "ApiEndpoint"
+        ]
+      }
+    }
+  }
+}

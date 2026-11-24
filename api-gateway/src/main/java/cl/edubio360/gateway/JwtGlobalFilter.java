@@ -24,6 +24,9 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
 
     private final SecretKey key;
 
+    @Value("${ep3.strict.access:false}")
+    private boolean strictAccess;
+
     public JwtGlobalFilter(@Value("${security.jwt.secret}") String secret) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
@@ -46,6 +49,12 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
             String email = claims.getSubject();
             String role = claims.get("role", String.class);
 
+            if (strictAccess && !permitted(path, exchange.getRequest().getMethod().name(), role)) {
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory()
+                        .wrap("{\"status\":403,\"message\":\"Acceso denegado\"}".getBytes(StandardCharsets.UTF_8))));
+            }
             ServerWebExchange mutated = exchange.mutate()
                     .request(request -> request.headers(headers -> {
                         headers.set("X-User-Email", email);
@@ -56,6 +65,26 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
         } catch (JwtException | IllegalArgumentException ex) {
             return unauthorized(exchange, "Token JWT inválido o vencido");
         }
+    }
+
+    static boolean permitted(String path, String method, String role) {
+        if (!java.util.Set.of("STUDENT", "ORIENTADOR", "ADMIN").contains(role == null ? "" : role)) {
+            return false;
+        }
+        if (path.startsWith("/api/usuarios") || path.startsWith("/api/importaciones")
+                || path.startsWith("/api/notificaciones")) {
+            return "ADMIN".equals(role);
+        }
+        if ((path.startsWith("/api/ofertas") || path.startsWith("/api/sedes")
+                || path.startsWith("/api/analytics") || path.startsWith("/api/metricas"))
+                && !"GET".equals(method)) {
+            return "ADMIN".equals(role);
+        }
+        if (path.startsWith("/api/solicitudes") && "GET".equals(method)
+                && "STUDENT".equals(role)) {
+            return path.equals("/api/solicitudes/mias");
+        }
+        return true;
     }
 
     private boolean isPublic(String path) {

@@ -1,0 +1,124 @@
+name: EduBio360 EP3 JVY0101
+on:
+  push:
+    branches: [main, "feature/ep3-cloud"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ep3-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Pruebas Maven
+        run: mvn -B -ntp clean verify
+      - name: Pruebas de integración de eventos y sintaxis
+        run: |
+          python3 -B -m unittest discover -s tests/ep3 -v
+          for script in scripts/ep3/*.sh; do bash -n "$script"; done
+          python3 -m json.tool cloud/infra.json >/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ep3-unit-tests
+          path: |
+            **/target/surefire-reports/**
+            **/target/site/jacoco/**
+  swarm:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      IMAGE_PREFIX: edubio360
+      IMAGE_TAG: ${{ github.sha }}
+      MYSQL_ROOT_PASSWORD: ephemeral-ci-mysql-ep3
+      RABBITMQ_PASSWORD: ephemeral-ci-rabbit-ep3
+      JWT_SECRET: ephemeral-ci-jwt-long-key-ep3-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir todas las imágenes
+        run: bash scripts/ep3/build-images.sh
+      - name: Swarm y prueba integrada local
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          bash scripts/ep3/swarm-init.sh manager "$(hostname -I | awk '{print $1}')"
+          docker stack config -c docker-stack.yml >/dev/null
+          bash scripts/ep3/swarm-deploy.sh
+          bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt
+          bash scripts/ep3/flow.sh | tee artifacts/flow.txt
+      - name: Guardar diagnóstico
+        if: always()
+        run: |
+          mkdir -p artifacts
+          docker stack services edubio > artifacts/services.txt 2>&1 || true
+          for s in $(docker stack services edubio --format '{{.Name}}' 2>/dev/null); do
+            docker service logs --tail 80 "$s" >> artifacts/swarm-logs.txt 2>&1 || true
+          done
+          docker stack rm edubio || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ep3-swarm
+          path: artifacts/
+  cloud:
+    needs: [verify, swarm]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.EP3_AWS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    environment: ep3-aws
+    env:
+      AWS_REGION: ${{ vars.EP3_AWS_REGION }}
+      IMAGE_TAG: ${{ github.sha }}
+      EP3_STACK: edubio-ep3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Bloqueo de seguridad antes de aprovisionar AWS
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          test -n "$SNYK_TOKEN"
+          npm install --global snyk
+          snyk test --maven-aggregate-project --severity-threshold=high --ignore-policy
+          snyk code test --severity-threshold=high
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.EP3_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+      - name: Provisionar VPC, EC2, ECR, SQS, Lambda, DynamoDB y API Gateway
+        run: bash scripts/ep3/provision.sh
+      - name: Construir y publicar imágenes en ECR
+        run: |
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          registry="$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          echo "IMAGE_PREFIX=$registry/edubio-ep3" >> "$GITHUB_ENV"
+          IMAGE_PREFIX="$registry/edubio-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
+      - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo
+        run: bash scripts/ep3/deploy-aws.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ep3-aws-evidence
+          path: artifacts/
