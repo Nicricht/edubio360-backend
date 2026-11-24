@@ -70,12 +70,18 @@ unset bench_credentials bench_pass
 printf 'replicas\tconcurrency\trequests\terrors\tmean_seconds\tp95_seconds\trequests_per_second\n' > artifacts/analytics-load-summary.tsv
 benchmark() {
   local replicas="$1" concurrency="$2" requests=48 start end elapsed errors mean p95 rate raw
-  raw="artifacts/analytics-load-${replicas}r-${concurrency}c.tsv"
+  local service="${3:-analytics}" route="${4:-/api/analytics/resumen}"
+  export BENCH_ROUTE="$route"
+  raw="artifacts/${service}-load-${replicas}r-${concurrency}c.tsv"
   # Warm the route after registry changes before measuring.
-  curl -fsS --retry 6 --retry-delay 2 --retry-all-errors --retry-max-time 35 -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL/api/analytics/resumen" | jq -e '.estado=="OPERATIVO"' >/dev/null
+  if [ "$service" = analytics ]; then
+    curl -fsS --retry 6 --retry-delay 2 --retry-all-errors --retry-max-time 35 -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL$route" | jq -e '.estado=="OPERATIVO"' >/dev/null
+  else
+    curl -fsS --retry 6 --retry-delay 2 --retry-all-errors --retry-max-time 35 "$BASE_URL$route" | jq -e 'type=="array" and length>0' >/dev/null
+  fi
   start="$(date +%s%N)"
   seq "$requests" | xargs -P "$concurrency" -I '{}' sh -c '
-    result=$(curl --silent --show-error --connect-timeout 5 --max-time 20 -o /dev/null -w "%{http_code} %{time_total}" -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL/api/analytics/resumen") || result="000 20"
+    result=$(curl --silent --show-error --connect-timeout 5 --max-time 20 -o /dev/null -w "%{http_code} %{time_total}" -H "Authorization: Bearer $BENCH_TOKEN" "$BASE_URL$BENCH_ROUTE") || result="000 20"
     printf "%s\n" "$result"
   ' > "$raw"
   end="$(date +%s%N)"
@@ -85,7 +91,7 @@ benchmark() {
   mean="$(awk '{s+=$2} END{printf "%.6f",s/NR}' "$raw")"
   p95="$(awk '{print $2}' "$raw" | sort -n | sed -n "$(((requests*95+99)/100))p")"
   rate="$(awk -v n="$requests" -v t="$elapsed" 'BEGIN{printf "%.2f",n/t}')"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$replicas" "$concurrency" "$requests" "$errors" "$mean" "$p95" "$rate" | tee -a artifacts/analytics-load-summary.tsv
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$replicas" "$concurrency" "$requests" "$errors" "$mean" "$p95" "$rate" | tee -a "artifacts/$service-load-summary.tsv"
   test "$errors" -eq 0
 }
 benchmark 1 1
@@ -113,7 +119,6 @@ for i in $(seq 1 15); do
 done
 benchmark 2 1
 benchmark 2 8
-unset BENCH_TOKEN
 docker service scale --detach=true edubio_analytics-service=1
 for attempt in $(seq 1 "$scale_attempts"); do
   if [ "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
@@ -121,4 +126,33 @@ for attempt in $(seq 1 "$scale_attempts"); do
 done
 test "$(docker service ls --filter name=edubio_analytics-service --format '{{.Replicas}}')" = "1/1"
 trap - EXIT
+# Second independent scenario: read-only academic catalogue, no mutation or
+# parallel scale of both services. Keep resource consumption bounded.
+printf 'replicas\tconcurrency\trequests\terrors\tmean_seconds\tp95_seconds\trequests_per_second\n' > artifacts/academic-load-summary.tsv
+benchmark 1 1 academic /api/ofertas
+benchmark 1 8 academic /api/ofertas
+trap 'docker service scale --detach=true edubio_academic-service=1 >/dev/null 2>&1 || true' EXIT
+docker service scale --detach=true edubio_academic-service=2
+for attempt in $(seq 1 "$scale_attempts"); do
+  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "2/2" ]; then break; fi
+  sleep 5
+done
+test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "2/2"
+docker service ps edubio_academic-service | tee artifacts/academic-replicas.txt
+if [ "${EP3_CLOUD:-false}" = true ]; then
+  test "$(docker service ps --filter desired-state=running --format '{{.Node}}' edubio_academic-service | sort -u | wc -l)" -eq 2
+fi
+for i in $(seq 1 15); do
+  curl -fsS --retry 2 --retry-all-errors --retry-max-time 30 "$BASE_URL/openapi/academic" >/dev/null
+done
+benchmark 2 1 academic /api/ofertas
+benchmark 2 8 academic /api/ofertas
+docker service scale --detach=true edubio_academic-service=1
+for attempt in $(seq 1 "$scale_attempts"); do
+  if [ "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "1/1" ]; then break; fi
+  sleep 5
+done
+test "$(docker service ls --filter name=edubio_academic-service --format '{{.Replicas}}')" = "1/1"
+trap - EXIT
+unset BENCH_TOKEN BENCH_ROUTE
 docker stack services edubio

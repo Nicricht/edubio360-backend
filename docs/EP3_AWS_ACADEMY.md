@@ -1,17 +1,19 @@
-# AWS Academy Learner Lab
+# AWS Academy — entrega independiente DevOps y Java Cloud
 
-The dedicated deployment stack supports either newly created IAM roles (standard AWS account) or an existing authorized Lambda execution role and EC2 instance profile (Academy). The Academy path does not create IAM roles or profiles. It must not modify pre-existing lab resources.
+Rama: ep3-devops-cloud. Stack exclusivo: edubio-devops-ep3. No administrar la pila edubio-ep3 ni las instancias de Fullstack.
 
-## Read-only preflight
+## Comprobación previa
+Iniciar el Learner Lab, verificar créditos disponibles, región, cuenta, permisos y cuotas. El script scripts/ep3/academy-preflight.sh verifica el rol y perfil existentes de forma previa. No cambiar los roles de laboratorio ni publicar credenciales.
 
-Run from a checked-out feature/ep3-integral branch in CloudShell: bash scripts/ep3/academy-preflight.sh. Verify the existing role trusts Lambda, the profile contains an EC2-trusted role, and the permissions cover SSM, ECR reads, SQS, DynamoDB and CloudWatch logs. A successful list operation does not prove permission to create resources. EC2 type offerings do not prove the academy permits launching that size.
+## Configuración inicial de GitHub Actions
+El propietario debe restringir el entorno ep3-aws a ep3-devops-cloud antes de utilizar secretos. Configurar variables EP3_AWS_REGION, EP3_AWS_ACCOUNT_ID, EP3_AWS_AUTH_MODE=academy y EP3_AWS_ENABLED=true una vez autorizado el gasto. Para Academy, guardar las tres credenciales temporales únicamente en los secrets del entorno protegido: EP3_LAB_ACCESS_KEY_ID, EP3_LAB_SECRET_ACCESS_KEY y EP3_LAB_SESSION_TOKEN. No pegarlas en chat, archivos ni logs. SNYK_TOKEN debe estar configurado para superar el control de seguridad. Para OIDC se requiere rol federado autorizado; no asumir que LabRole admite OIDC.
 
-The dedicated stack name is edubio-ep3 unless explicitly configured. Review any existing stack with that name before creating or updating. Use EP3_ACADEMY=true, EP3_LAB_ROLE_ARN (existing authorized role ARN) and EP3_LAB_INSTANCE_PROFILE (existing authorized profile name) with provision.sh. No permanent credentials are required for running AWS CLI in the active CloudShell session. Never paste temporary AWS keys into chat, commit them, or store them in logs.
+## Ejecución
+En Actions, seleccionar EduBio360 EP3 JVY0101, rama ep3-devops-cloud y Run workflow. Marcar deploy_isolated_aws solo con autorización de créditos. El pipeline comprueba la cuenta y rama, ejecuta pruebas y seguridad, aprovisiona edubio-devops-ep3, publica en sus repositorios ECR, despliega y verifica mediante SSM y navegador HTTPS.
 
-## Pending validation
+Para demostrar CD automático después de un push, habilitar EP3_DEVOPS_AUTO_DEPLOY=true únicamente con autorización expresa de despliegues sucesivos, entorno restringido y credenciales vigentes. Desactivar después de obtener la evidencia. No es necesario modificar nico.
 
-Actual permissions, resource quotas, budget remaining, SSM connectivity, ECR image publication, and the complete cloud smoke test remain unverified. GitHub Actions OIDC requires separate authorized federation; the existing LabRole is not assumed to trust GitHub. The cloud job must remain gated on security and quality. Do not deploy this increment until the integration and security checks pass. CloudShell is not a substitute for demonstrating an automated CI/CD deployment. Do not delete unrelated resources or reset the lab.
+## Evidencias
+Revisar que el job cloud tenga conclusion success, no skipped; descargar ep3-aws-evidence, que debe contener salidas CloudFormation, log de despliegue, informe de observabilidad y pruebas del navegador. Verificar Manager/Worker Ready, SQS, Lambda, DynamoDB, HTTPS y constancia correlacionada. La URL anterior Fullstack no es evidencia de esta pila. No afirmar aprobación sin resultados reales.
 
-## Autenticación de CI/CD para Academy
-
-El job cloud admite EP3_AWS_AUTH_MODE=academy y solo se ejecuta por workflow_dispatch en este modo, además de exigir EP3_AWS_ENABLED=true, las pruebas de integración y ambos escaneos Snyk. La configuración exige región, cuenta esperada (EP3_AWS_ACCOUNT_ID) y las tres credenciales temporales AWS de la sesión activa, introducidas exclusivamente como secrets del entorno ep3-aws de GitHub por el propietario. No se deben guardar en variables, commits, capturas ni chat. Los nombres son EP3_LAB_ACCESS_KEY_ID, EP3_LAB_SECRET_ACCESS_KEY y EP3_LAB_SESSION_TOKEN. El propietario debe restringir el entorno a la rama aprobada, revisar el workflow y habilitar protección/aprobación del entorno antes de guardar secretos; si no puede protegerlo, no utilizar este modo. Eliminar los secretos cuando termine el despliegue. El rol y el perfil se obtienen por AWS CLI; el job no crea roles nuevos. No sustituye la verificación de presupuesto, permisos de creación o estado real de la sesión. La modalidad estándar OIDC sigue disponible.
+Cuando termine el laboratorio, la disponibilidad depende de AWS Academy y de las instancias. Cualquier detención o eliminación de recursos de la nueva pila requiere autorización y conservación de evidencias; no afectar Fullstack.

@@ -14,7 +14,7 @@ permissions:
   contents: read
 concurrency:
   group: ep3-v2-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' && vars.EP3_DEVOPS_AUTO_DEPLOY != 'true' }}
+  cancel-in-progress: false
 jobs:
   scope:
     name: Clasificar cambios
@@ -117,7 +117,7 @@ jobs:
           echo "DEPLOY_STARTED=$(date +%s)" >> "$GITHUB_ENV"
           bash scripts/ep3/swarm-deploy.sh
       - name: Salud y escalamiento de servicios
-        timeout-minutes: 13
+        timeout-minutes: 22
         run: |
           set -o pipefail
           bash scripts/ep3/swarm-smoke.sh | tee artifacts/swarm.txt

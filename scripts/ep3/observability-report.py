@@ -51,9 +51,10 @@ def report():
             raise ValueError("constancia no verificada")
         result["serverless_receipt"] = receipt
         result["nodes"] = (ART / "cloud-nodes.txt").read_text()
-    load = ART / "analytics-load-summary.tsv"
-    if load.exists():
-        result["analytics_load_tsv"] = load.read_text()
+    for name in ("analytics", "academic"):
+        load = ART / (name + "-load-summary.tsv")
+        if load.exists():
+            result[name + "_load_tsv"] = load.read_text()
     return result
 
 

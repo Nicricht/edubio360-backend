@@ -7,6 +7,12 @@ Los registros EP2 siguientes son históricos, no describen el estado actual de E
 
 ## EP3 JVY0101 — Integración y despliegue de soluciones cloud
 
+### Administración Docker Swarm (Bash/WSL, red privada de pruebas)
+
+En el primer nodo: `bash scripts/ep3/swarm-init.sh manager IP_PRIVADA_MANAGER`. Para obtener el comando de incorporación del segundo nodo, ejecutar `docker swarm join-token worker` en el manager. Ejecutar el comando resultante de forma privada en el worker, o el script `swarm-init.sh worker IP_PRIVADA_MANAGER` con SWARM_JOIN_TOKEN definido de manera segura. No publicar el token.
+
+Para desplegar, definir IMAGE_PREFIX, IMAGE_TAG, MYSQL_ROOT_PASSWORD, RABBITMQ_PASSWORD y JWT_SECRET; construir con `bash scripts/ep3/build-images.sh` y desplegar con `bash scripts/ep3/swarm-deploy.sh`. Para inspeccionar: `docker node ls`, `docker stack services edubio`, `docker service ps edubio_analytics-service`. Para ajustar réplicas: `docker service scale edubio_analytics-service=2` y volver a 1 al terminar. Los scripts prueban Analytics y Academic bajo carga. Ejecutar solo en un entorno aislado, nunca sobre la pila de Fullstack. Para AWS seguir la [guía Academy de esta rama](docs/EP3_AWS_ACADEMY.md).
+
 [Guía de implementación, ejecución y evidencia IE1–IE17](docs/EP3_JVY0101.md). Incluye Docker Swarm, CloudFormation, AWS SQS, Lambda, DynamoDB, API Gateway y CI/CD. No se considera desplegado hasta comprobar los resultados reales de Actions y AWS.
 
 
