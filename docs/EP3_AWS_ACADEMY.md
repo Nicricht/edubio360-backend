@@ -17,3 +17,7 @@ Para demostrar CD automático después de un push, habilitar EP3_DEVOPS_AUTO_DEP
 Revisar que el job cloud tenga conclusion success, no skipped; descargar ep3-aws-evidence, que debe contener salidas CloudFormation, log de despliegue, informe de observabilidad y pruebas del navegador. Verificar Manager/Worker Ready, SQS, Lambda, DynamoDB, HTTPS y constancia correlacionada. La URL anterior Fullstack no es evidencia de esta pila. No afirmar aprobación sin resultados reales.
 
 Cuando termine el laboratorio, la disponibilidad depende de AWS Academy y de las instancias. Cualquier detención o eliminación de recursos de la nueva pila requiere autorización y conservación de evidencias; no afectar Fullstack.
+
+## Solicitud única desde GitHub
+
+Un push explícitamente solicitado para desplegar puede usar el marcador `[aws-deploy-once]` en el mensaje del commit. Solo aplica a ep3-devops-cloud, exige EP3_AWS_ENABLED=true y mantiene todas las pruebas, autorización del entorno y verificación de cuenta. No habilita despliegues automáticos futuros por sí solo. El workflow AWS Academy preflight verifica en paralelo la configuración y autenticación mediante operaciones de lectura, sin imprimir secretos ni crear recursos. Si las credenciales caducaron, únicamente el propietario puede renovarlas en el entorno protegido. No usar secretos de Fullstack fuera de la cuenta autorizada.

@@ -1,0 +1,58 @@
+name: AWS Academy preflight (solo lectura)
+on:
+  push:
+    branches: [ep3-devops-cloud]
+    paths:
+      - '.github/workflows/aws-academy-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/ep3-devops-cloud'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: ep3-aws
+    steps:
+      - name: Verificar configuracion sin mostrar secretos
+        env:
+          ENABLED: ${{ vars.EP3_AWS_ENABLED }}
+          MODE: ${{ vars.EP3_AWS_AUTH_MODE }}
+          REGION: ${{ vars.EP3_AWS_REGION }}
+          ACCOUNT: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+          ACCESS: ${{ secrets.EP3_LAB_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.EP3_LAB_SECRET_ACCESS_KEY }}
+          TOKEN: ${{ secrets.EP3_LAB_SESSION_TOKEN }}
+          ROLE: ${{ vars.EP3_AWS_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          test "$ENABLED" = true || { echo "::error::EP3_AWS_ENABLED no esta habilitada"; exit 1; }
+          test -n "$REGION" && test -n "$ACCOUNT" || { echo "::error::Faltan region o cuenta esperada"; exit 1; }
+          if [ "$MODE" = academy ]; then
+            test -n "$ACCESS" && test -n "$SECRET" && test -n "$TOKEN" || { echo "::error::Faltan secrets temporales de Academy"; exit 1; }
+          else
+            test -n "$ROLE" || { echo "::error::Falta rol federado autorizado"; exit 1; }
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: vars.EP3_AWS_AUTH_MODE == 'academy'
+        with:
+          aws-access-key-id: ${{ secrets.EP3_LAB_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.EP3_LAB_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.EP3_LAB_SESSION_TOKEN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+          allowed-account-ids: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: vars.EP3_AWS_AUTH_MODE != 'academy'
+        with:
+          role-to-assume: ${{ vars.EP3_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.EP3_AWS_REGION }}
+          allowed-account-ids: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+      - name: Confirmar identidad y acceso de lectura
+        env:
+          EXPECTED: ${{ vars.EP3_AWS_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED"
+          aws cloudformation list-stacks --query 'StackSummaries[?StackName==`edubio-devops-ep3` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output json
+          echo "AWS: autenticacion vigente y acceso de lectura comprobados. Sin crear ni modificar recursos."
