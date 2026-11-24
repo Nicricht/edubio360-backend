@@ -32,6 +32,23 @@ Path("artifacts").mkdir(exist_ok=True)
 with sync_playwright() as pw:
     browser = pw.chromium.launch(headless=True)
     page = browser.new_page()
+    # Evidencia de navegación pública y documentación real del Gateway.
+    for route, filename in [("/", "07-inicio.png"), ("/carreras", "08-catalogo.png"), ("/mapa", "09-mapa.png"), ("/comparar", "10-comparador.png")]:
+        response = page.goto(base + route)
+        assert response and response.ok, route
+        expect(page.locator("main")).to_be_visible(timeout=30000)
+        page.screenshot(path="artifacts/" + filename)
+    response = page.goto(base + "/swagger-ui/index.html")
+    assert response and response.ok, "Swagger UI no disponible"
+    expect(page.locator(".swagger-ui .opblock").first).to_be_visible(timeout=30000)
+    page.screenshot(path="artifacts/11-swagger.png")
+    response = page.goto(base + "/api/ofertas")
+    assert response and response.status == 200
+    assert isinstance(response.json(), list) and response.json()
+    page.screenshot(path="artifacts/12-api-ofertas-200.png")
+    response = page.goto(base + "/api/usuarios")
+    assert response and response.status == 401
+    page.screenshot(path="artifacts/13-api-usuarios-401.png")
     page.goto(base + "/registro")
     expect(page.get_by_role("heading", name="Crea tu cuenta")).to_be_visible(timeout=30000)
     page.screenshot(path="artifacts/01-registro.png", full_page=True)
@@ -50,7 +67,19 @@ with sync_playwright() as pw:
     page.get_by_label("Motivo de consulta").fill("Prueba real de integración Fullstack")
     page.get_by_label("Fecha preferida").fill((datetime.date.today() + datetime.timedelta(days=2)).isoformat())
     page.screenshot(path="artifacts/04-solicitar-orientacion.png", full_page=True)
-    page.get_by_role("button", name="Enviar solicitud").click()
+    with page.expect_response(lambda r: r.request.method == "POST" and r.url.endswith("/api/solicitudes"), timeout=30000) as pending:
+        page.get_by_role("button", name="Enviar solicitud").click()
+    submitted = pending.value
+    assert submitted.ok, "La API no creó la solicitud"
+    result = submitted.json()
+    # No registrar cabeceras Authorization, credenciales ni tokens.
+    Path("artifacts/http-solicitud.json").write_text(json.dumps({
+        "method": submitted.request.method,
+        "path": "/api/solicitudes",
+        "status": submitted.status,
+        "request": submitted.request.post_data_json,
+        "response": {k: result[k] for k in ("id", "estado", "ofertaId", "motivo") if k in result},
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     expect(page.get_by_role("heading", name="Solicitud enviada")).to_be_visible(timeout=30000)
     page.screenshot(path="artifacts/05-solicitud-enviada.png", full_page=True)
     page.get_by_role("link", name="Ver mis solicitudes").click()
