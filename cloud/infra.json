@@ -924,9 +924,7 @@
             "Values": [
               "/api/*",
               "/openapi/*",
-              "/swagger-ui*",
-              "/v3/api-docs*",
-              "/actuator/health"
+              "/swagger-ui*"
             ]
           }
         ],
@@ -950,6 +948,32 @@
         "Target": {
           "Fn::Sub": "integrations/${Integration}"
         }
+      }
+    },
+    "BackendDocumentationRule": {
+      "Type": "AWS::ElasticLoadBalancingV2::ListenerRule",
+      "Properties": {
+        "ListenerArn": {
+          "Ref": "Listener"
+        },
+        "Priority": 21,
+        "Conditions": [
+          {
+            "Field": "path-pattern",
+            "Values": [
+              "/v3/api-docs*",
+              "/actuator/health"
+            ]
+          }
+        ],
+        "Actions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "Targets"
+            }
+          }
+        ]
       }
     }
   },
