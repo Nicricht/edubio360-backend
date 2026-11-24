@@ -23,6 +23,9 @@ RUN --mount=type=cache,id=edubio360-maven-repository,target=/root/.m2/repository
     mvn -B -ntp -U clean package -DskipTests \
     -Daether.transport.http.retryHandler.count=6
 
+FROM scratch AS build-precompiled
+COPY portable-jars/ /workspace/
+
 FROM ${PACKAGE_STAGE} AS build
 
 FROM eclipse-temurin:21-jre

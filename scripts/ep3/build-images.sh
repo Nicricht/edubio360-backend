@@ -10,10 +10,16 @@ fi
 
 services=(discovery-server:8761 auth-service:8081 academic-service:8082 guidance-service:8083 notification-service:8084 analytics-service:8085 import-service:8086 api-gateway:8080)
 started=$SECONDS
+package_stage=build-all
+build_context=.
+if [ -n "${PRECOMPILED_CONTEXT:-}" ]; then
+  package_stage=build-precompiled
+  build_context="$PRECOMPILED_CONTEXT"
+fi
 build_service() {
   local pair="$1" name port
   name=${pair%:*}; port=${pair#*:}
-  docker build -f Dockerfile.service --build-arg PACKAGE_STAGE=build-all --build-arg MODULE="$name" --build-arg HEALTH_PORT="$port" -t "$IMAGE_PREFIX/$name:$IMAGE_TAG" .
+  docker build -f Dockerfile.service --build-arg PACKAGE_STAGE="$package_stage" --build-arg MODULE="$name" --build-arg HEALTH_PORT="$port" -t "$IMAGE_PREFIX/$name:$IMAGE_TAG" "$build_context"
   test "$(docker image inspect --format '{{.Config.User}}' "$IMAGE_PREFIX/$name:$IMAGE_TAG")" = "10001:10001"
 }
 

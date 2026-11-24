@@ -20,6 +20,10 @@ for service in services.values():
 # Match the already certified Swarm gateway policy: public read-only catalog,
 # mandatory JWT and role enforcement for private and administrative operations.
 services["api-gateway"]["environment"]["EP3_STRICT_ACCESS"] = "true"
+# Compose config is serialized and parsed again on the destination host.
+# Escape the variable for that second interpolation pass.
+test = services["mysql"]["healthcheck"]["test"]
+test[1] = test[1].replace("$$MYSQL_ROOT_PASSWORD", "$MYSQL_ROOT_PASSWORD").replace("$MYSQL_ROOT_PASSWORD", "$$MYSQL_ROOT_PASSWORD")
 # Keep the database initialization path relative to the portable directory.
 for volume in services["mysql"]["volumes"]:
     if volume["type"] == "bind":

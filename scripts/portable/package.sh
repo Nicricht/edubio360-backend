@@ -9,7 +9,25 @@ export RABBITMQ_USER=edubio
 export RABBITMQ_PASSWORD="$(openssl rand -hex 20)"
 export JWT_SECRET="$(openssl rand -hex 32)"
 mkdir -p "$out/imagenes-docker" "$out/mysql" "$out/codigo"
-bash scripts/ep3/build-images.sh
+if [ "${PORTABLE_USE_VERIFIED_JARS:-false}" = true ]; then
+  jar_context="$(mktemp -d)"
+  trap 'rm -rf "$jar_context"' EXIT
+  for service in discovery-server auth-service academic-service guidance-service notification-service analytics-service import-service api-gateway; do
+    shopt -s nullglob
+    jars=("$service"/target/*.jar)
+    shopt -u nullglob
+    if [ "${#jars[@]}" != 1 ] || [ ! -s "${jars[0]}" ]; then
+      echo "Se esperaba exactamente un JAR verificado para $service" >&2
+      exit 1
+    fi
+    mkdir -p "$jar_context/portable-jars/$service/target"
+    cp "${jars[0]}" "$jar_context/portable-jars/$service/target/"
+  done
+  echo "[Portable] Reutilizando los ocho JAR de mvn clean verify, sin descargar dependencias Maven en Docker."
+  PRECOMPILED_CONTEXT="$jar_context" bash scripts/ep3/build-images.sh
+else
+  bash scripts/ep3/build-images.sh
+fi
 docker build -t edubio360/frontend:portable "$frontend_dir"
 docker pull mysql:8.0
 docker pull rabbitmq:3.13-management
