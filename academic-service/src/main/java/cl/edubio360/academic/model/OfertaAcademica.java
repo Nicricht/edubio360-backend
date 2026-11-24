@@ -29,6 +29,30 @@ public class OfertaAcademica {
     @JoinColumn(name = "sede_id", nullable = false)
     private Sede sede;
 
+    @Column(length = 180)
+    private String area;
+
+    @Column
+    private Integer duracion;
+
+    @Column(length = 180)
+    private String nivel;
+
+    @Column(length = 2000)
+    private String descripcion;
+
+    @Column(length = 180)
+    private String grupoComparacion;
+
+    @Column(length = 300)
+    private String imagen;
+
+    @Column
+    private Integer cupos;
+
+    @Column
+    private Integer cupoCritico;
+
     protected OfertaAcademica() {}
 
     public OfertaAcademica(String carrera, String modalidad, String jornada,
@@ -50,6 +74,26 @@ public class OfertaAcademica {
         this.matricula = matricula;
         this.sede = sede;
     }
+
+    public void actualizarDetalles(String area, Integer duracion, String nivel, String descripcion, String grupoComparacion, String imagen, Integer cupos, Integer cupoCritico) {
+        if (area != null) this.area = area;
+        if (duracion != null) this.duracion = duracion;
+        if (nivel != null) this.nivel = nivel;
+        if (descripcion != null) this.descripcion = descripcion;
+        if (grupoComparacion != null) this.grupoComparacion = grupoComparacion;
+        if (imagen != null) this.imagen = imagen;
+        if (cupos != null) this.cupos = cupos;
+        if (cupoCritico != null) this.cupoCritico = cupoCritico;
+    }
+
+    public String getArea() { return area; }
+    public Integer getDuracion() { return duracion; }
+    public String getNivel() { return nivel; }
+    public String getDescripcion() { return descripcion; }
+    public String getGrupoComparacion() { return grupoComparacion; }
+    public String getImagen() { return imagen; }
+    public Integer getCupos() { return cupos; }
+    public Integer getCupoCritico() { return cupoCritico; }
 
     public Long getId() { return id; }
     public String getCarrera() { return carrera; }
