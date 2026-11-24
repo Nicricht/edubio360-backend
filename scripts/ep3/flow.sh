@@ -5,24 +5,49 @@ image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 suffix="$(date +%s)-$RANDOM"
 student="ep3-student-$suffix@example.test"
 teacher="ep3-teacher-$suffix@example.test"
+admin="ep3-admin-$suffix@example.test"
+other="ep3-other-$suffix@example.test"
 pass="$(openssl rand -hex 24)"
 login() {
   curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$1" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/login" | jq -er '.token'
 }
 curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$student" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/register" >/dev/null
-# El operador crea el orientador en la red privada; no se publica un alta privilegiada.
-docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$teacher" --arg p "$pass" '{email:$e,password:$p,role:"ORIENTADOR",active:true}')" http://auth-service:8081/api/usuarios >/dev/null
+# El operador provisiona el primer administrador exclusivamente en la red privada.
+admin_id="$(docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$admin" --arg p "$pass" '{email:$e,password:$p,role:"ADMIN",active:true}')" http://auth-service:8081/api/usuarios | jq -er '.id')"
+at="$(login "$admin")"
+teacher_id="$(curl -fsS -H "Authorization: Bearer $at" -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$teacher" --arg p "$pass" '{email:$e,password:$p,role:"ORIENTADOR",active:true}')" "$base/api/usuarios" | jq -er '.id')"
+curl -fsS -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$other" --arg p "$pass" '{email:$e,password:$p}')" "$base/api/auth/register" >/dev/null
+other_token="$(login "$other")"
+
 st="$(login "$student")"; ot="$(login "$teacher")"
 test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $st" "$base/api/usuarios")" = 403
+test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $st" -H 'X-User-Role: ADMIN' "$base/api/usuarios")" = 403
+curl -fsS -H "Authorization: Bearer $st" "$base/api/auth/me" | jq -e --arg e "$student" '.email == $e and .role == "STUDENT"' >/dev/null
+curl -fsS -X PUT -H "Authorization: Bearer $st" -H 'Content-Type: application/json' -d '{"nombre":"Estudiante EP3","apellidos":"Prueba"}' "$base/api/auth/me" | jq -e '.perfil.nombre == "Estudiante EP3"' >/dev/null
+curl -fsS -H "Authorization: Bearer $st" "$base/api/auth/me" | jq -e '.perfil.nombre == "Estudiante EP3"' >/dev/null
+sede="$(curl -fsS "$base/api/sedes" | jq -er '.[0].id')"
+payload="$(jq -nc --argjson sede "$sede" '{carrera:"Oferta temporal EP3",modalidad:"Presencial",jornada:"Diurno",arancel:1000,matricula:100,sedeId:$sede,area:"Tecnología",duracion:8,nivel:"Profesional",descripcion:"Prueba automatizada"}')"
+test "$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $st" -H 'Content-Type: application/json' -d "$payload" "$base/api/ofertas")" = 403
+temp_offer="$(curl -fsS -H "Authorization: Bearer $at" -H 'Content-Type: application/json' -d "$payload" "$base/api/ofertas" | jq -er '.id')"
+curl -fsS "$base/api/ofertas/$temp_offer" | jq -e '.carrera == "Oferta temporal EP3"' >/dev/null
+curl -fsS -X PUT -H "Authorization: Bearer $at" -H 'Content-Type: application/json' -d "$(jq '.arancel=2000' <<< "$payload")" "$base/api/ofertas/$temp_offer" | jq -e '.arancel == 2000' >/dev/null
+curl -fsS "$base/api/ofertas/$temp_offer" | jq -e '.arancel == 2000' >/dev/null
+test "$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $at" "$base/api/ofertas/$temp_offer")" = 204
+test "$(curl -sS -o /dev/null -w '%{http_code}' "$base/api/ofertas/$temp_offer")" = 404
+echo "CRUD de ofertas, perfil persistido y restricciones de roles verificados"
 offer="$(curl -fsS -H "Authorization: Bearer $st" "$base/api/ofertas" | jq -er '.[0].id')"
 day="$(date -u -d '+2 days' '+%Y-%m-%dT%H:%M:%S')"
 request="$(curl -fsS -H "Authorization: Bearer $st" -H 'Content-Type: application/json' -d "$(jq -nc --argjson id "$offer" --arg d "$day" '{ofertaId:$id,motivo:"Prueba integrada EP3",fechaHora:$d}')" "$base/api/solicitudes")"
 id="$(jq -er '.id' <<< "$request")"
 test "$(jq -r '.estado' <<< "$request")" = PENDIENTE
+test "$(curl -sS -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $other_token" "$base/api/solicitudes/$id/cancelar")" = 403
+curl -fsS -H "Authorization: Bearer $other_token" "$base/api/solicitudes/mias" | jq -e 'length == 0' >/dev/null
+curl -fsS -H "Authorization: Bearer $st" "$base/api/solicitudes/mias" | jq -e --argjson id "$id" 'any(.[]; .id==$id)' >/dev/null
+echo "Aislamiento de solicitudes por estudiante verificado"
 curl -fsS -X PUT -H "Authorization: Bearer $ot" "$base/api/solicitudes/$id/confirmar" | jq -e '.estado == "CONFIRMADA"' >/dev/null
 echo "Solicitud $id confirmada por Gateway"
 for attempt in $(seq 1 60); do
-  if docker run --rm --network edubio_backend --entrypoint curl "$image" -fsS http://notification-service:8084/api/notificaciones | jq -e --arg e "$student" 'any(.[]; .destinatario == $e and .estado == "PROCESADA")' >/dev/null; then
+  if curl -fsS -H "Authorization: Bearer $st" "$base/api/notificaciones/mias" | jq -e --arg e "$student" 'any(.[]; .destinatario == $e and .estado == "PROCESADA")' >/dev/null; then
     echo "RabbitMQ: notificación procesada"; break
   fi
   test "$attempt" -lt 60
@@ -37,3 +62,13 @@ if [ -n "${RECEIPT_TABLE:-}" ]; then
     sleep 5
   done
 fi
+
+curl -fsS -H "Authorization: Bearer $other_token" "$base/api/notificaciones/mias" | jq -e 'length == 0' >/dev/null
+test "$(curl -sS -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $st" "$base/api/notificaciones/mias/leidas")" = 204
+curl -fsS -H "Authorization: Bearer $st" "$base/api/notificaciones/mias" | jq -e 'length>0 and all(.[]; .leida == true)' >/dev/null
+curl -fsS -X PUT -H "Authorization: Bearer $ot" -H 'Content-Type: application/json' -d '{"estado":"COMPLETADA","resultado":"Orientación de prueba completada","observacion":"Evidencia EP3"}' "$base/api/solicitudes/$id/gestionar" | jq -e '.estado == "COMPLETADA" and .resultado != null' >/dev/null
+curl -fsS -H "Authorization: Bearer $st" "$base/api/solicitudes/mias" | jq -e --argjson id "$id" 'any(.[]; .id==$id and .estado=="COMPLETADA")' >/dev/null
+echo "Notificaciones privadas, lectura persistida y cierre de orientación verificados"
+# Eliminar las cuentas privilegiadas temporales de la prueba, no las cuentas del usuario.
+curl -fsS -X DELETE -H "Authorization: Bearer $at" "$base/api/usuarios/$teacher_id" >/dev/null
+curl -fsS -X DELETE -H "Authorization: Bearer $at" "$base/api/usuarios/$admin_id" >/dev/null
