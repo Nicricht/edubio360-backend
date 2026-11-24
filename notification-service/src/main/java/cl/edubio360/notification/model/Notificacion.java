@@ -30,6 +30,9 @@ public class Notificacion {
     @OneToMany(mappedBy = "notificacion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Envio> envios = new ArrayList<>();
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean leida;
+
     protected Notificacion() {}
 
     public Notificacion(String tipo, String destinatario, String mensaje) {
@@ -54,6 +57,9 @@ public class Notificacion {
     public void addEnvio(String canal, String estado) {
         envios.add(new Envio(canal, estado, this));
     }
+
+    public boolean isLeida() { return leida; }
+    public void marcarLeida() { leida = true; }
 
     public Long getId() { return id; }
     public String getTipo() { return tipo; }

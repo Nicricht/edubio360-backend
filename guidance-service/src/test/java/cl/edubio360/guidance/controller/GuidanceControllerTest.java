@@ -71,6 +71,18 @@ class GuidanceControllerTest {
     }
 
     @Test
+    void endpointsGestion() throws Exception {
+        when(service.disponibles(anyString(), anyString())).thenReturn(List.of(solicitud()));
+        mvc.perform(get("/api/solicitudes/disponibles").header("X-User-Email", "orientador@example.test").header("X-User-Role", "ORIENTADOR")).andExpect(status().isOk());
+        when(service.reprogramar(eq(1L), anyString(), anyString(), any())).thenReturn(solicitud());
+        mvc.perform(put("/api/solicitudes/1/reprogramar").header("X-User-Email", "student@example.test").header("X-User-Role", "STUDENT").contentType("application/json")
+            .content("{\"motivo\":\"Motivo\",\"fechaHora\":\"2099-01-01T10:00:00\"}")).andExpect(status().isOk());
+        when(service.gestionar(eq(1L), anyString(), anyString(), any())).thenReturn(solicitud());
+        mvc.perform(put("/api/solicitudes/1/gestionar").header("X-User-Email", "orientador@example.test").header("X-User-Role", "ORIENTADOR").contentType("application/json")
+            .content("{\"estado\":\"COMPLETADA\",\"resultado\":\"Orientación realizada\"}")).andExpect(status().isOk());
+    }
+
+    @Test
     void endpointsDeDominio() throws Exception {
         when(service.mias(anyString(), anyString())).thenReturn(List.of(solicitud()));
         mvc.perform(get("/api/solicitudes/mias")

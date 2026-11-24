@@ -38,6 +38,15 @@ public class SolicitudOrientacion {
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<HistorialSolicitud> historial = new ArrayList<>();
 
+    @Column(length = 1000)
+    private String resultado;
+    @Column(length = 1000)
+    private String observacion;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "solicitud_ofertas_comparadas", joinColumns = @JoinColumn(name = "solicitud_id"))
+    @Column(name = "oferta_id")
+    private java.util.Set<Long> ofertasComparadas = new java.util.LinkedHashSet<>();
+
     protected SolicitudOrientacion() {}
 
     public SolicitudOrientacion(String estudianteEmail, Long ofertaId, String motivo, LocalDateTime fechaHora) {
@@ -62,6 +71,7 @@ public class SolicitudOrientacion {
     }
 
     public void confirmar(String orientadorEmail) {
+        if (this.orientadorEmail != null && !this.orientadorEmail.equalsIgnoreCase(orientadorEmail)) throw new IllegalStateException("La solicitud ya tiene orientador");
         if (!estado.equals("PENDIENTE") && !estado.equals("REPROGRAMADA")) {
             throw new IllegalStateException("La solicitud no puede confirmarse desde el estado " + estado);
         }
@@ -79,6 +89,45 @@ public class SolicitudOrientacion {
         this.updatedAt = LocalDateTime.now();
         addHistorial("CANCELADA", "Solicitud cancelada");
     }
+
+    public void guardarComparadas(java.util.List<Long> ids) {
+        if (ids != null) ofertasComparadas.addAll(ids);
+    }
+
+    public void reprogramar(LocalDateTime fecha) {
+        if (estado.equals("COMPLETADA") || estado.equals("CANCELADA")) throw new IllegalStateException("Solicitud finalizada");
+        if (fecha == null || fecha.isBefore(LocalDateTime.now())) throw new IllegalStateException("Fecha inválida");
+        fechaHora = fecha;
+        estado = "REPROGRAMADA";
+        updatedAt = LocalDateTime.now();
+        addHistorial(estado, "Solicitud reprogramada");
+    }
+
+    public void gestionar(String nuevoEstado, LocalDateTime fecha, String resultado, String observacion) {
+        if (estado.equals("COMPLETADA") || estado.equals("CANCELADA")) throw new IllegalStateException("Solicitud finalizada");
+        switch (nuevoEstado) {
+            case "REPROGRAMADA" -> reprogramar(fecha);
+            case "COMPLETADA" -> {
+                if (!estado.equals("CONFIRMADA")) throw new IllegalStateException("Confirma primero la solicitud");
+                if (resultado == null || resultado.isBlank()) throw new IllegalStateException("Resultado obligatorio");
+                estado = nuevoEstado;
+            }
+            case "CANCELADA" -> cancelar();
+            case "CONFIRMADA" -> {
+                if (!estado.equals("CONFIRMADA") && !estado.equals("REPROGRAMADA")) throw new IllegalStateException("Estado inválido");
+                estado = nuevoEstado;
+            }
+            default -> throw new IllegalStateException("Estado inválido");
+        }
+        this.resultado = resultado;
+        this.observacion = observacion;
+        updatedAt = LocalDateTime.now();
+        addHistorial(estado, "Gestión de orientación");
+    }
+
+    public String getResultado() { return resultado; }
+    public String getObservacion() { return observacion; }
+    public java.util.Set<Long> getOfertasComparadas() { return ofertasComparadas; }
 
     public void addHistorial(String estado, String detalle) {
         historial.add(new HistorialSolicitud(estado, detalle, this));
