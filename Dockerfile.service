@@ -23,13 +23,18 @@ RUN --mount=type=cache,id=edubio360-maven-repository,target=/root/.m2/repository
     mvn -B -ntp -U clean package -DskipTests \
     -Daether.transport.http.retryHandler.count=6
 
+FROM scratch AS build-verified
+ARG MODULE
+COPY verified-jars/${MODULE}/app.jar /workspace/${MODULE}/target/app.jar
+
 FROM ${PACKAGE_STAGE} AS build
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre AS runtime-base
 ENV JAVA_TOOL_OPTIONS="-Djavax.xml.accessExternalDTD= -Djavax.xml.accessExternalSchema= -Djavax.xml.accessExternalStylesheet="
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime
 ARG MODULE
 ARG HEALTH_PORT=8080
 ENV HEALTH_PORT=${HEALTH_PORT}

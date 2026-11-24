@@ -15,9 +15,14 @@ trap cleanup EXIT
 
 echo "[EP02] Construyendo y levantando MySQL + microservicios..."
 # Reintenta únicamente construcción, sin relajar pruebas ni escaneo.
+package_stage=build-all
+if [ "${USE_VERIFIED_JARS:-false}" = true ]; then
+  python3 scripts/ep3/verified-jars.py check
+  package_stage=build-verified
+fi
 for build_attempt in 1 2 3; do
-  if COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all discovery-server && \
-     COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE=build-all; then break; fi
+  if COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE="$package_stage" discovery-server && \
+     COMPOSE_PARALLEL_LIMIT=2 docker compose build --build-arg PACKAGE_STAGE="$package_stage"; then break; fi
   if [ "$build_attempt" = 3 ]; then exit 1; fi
   sleep "$((build_attempt * 30))"
 done

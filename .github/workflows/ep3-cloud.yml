@@ -1,7 +1,7 @@
 name: EduBio360 EP3 JVY0101
 on:
   push:
-    branches: [main, nico, "feature/ep3-cloud", "feature/ep3-integral"]
+    branches: [main, nico, "feature/ep3-cloud", "feature/ep3-integral", "perf/ep3-reutilizar-jar"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -43,6 +43,14 @@ jobs:
           path: |
             **/target/surefire-reports/**
             **/target/site/jacoco/**
+      - name: Preparar JAR ejecutables verificados
+        run: python3 scripts/ep3/verified-jars.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-jars
+          path: verified-jars/
+          compression-level: 0
+          if-no-files-found: error
   swarm:
     needs: verify
     runs-on: ubuntu-latest
@@ -67,7 +75,23 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-jars
+          path: verified-jars
+      - uses: docker/setup-buildx-action@v3
+      - name: Reutilizar base Java de Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.service
+          target: runtime-base
+          cache-from: type=gha,scope=ep3-runtime-java
+          cache-to: type=gha,scope=ep3-runtime-java,mode=min
       - name: Construir todas las imágenes
+        env:
+          USE_VERIFIED_JARS: 'true'
+          EP3_BUILDX: 'true'
         run: |
           bash scripts/ep3/build-images.sh
           docker build -t "$IMAGE_PREFIX/frontend:$IMAGE_TAG" frontend-source
@@ -192,7 +216,23 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: e6af62b78e95c6d8cda602957fe8be01a794c971
           path: frontend-source
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-jars
+          path: verified-jars
+      - uses: docker/setup-buildx-action@v3
+      - name: Reutilizar base Java de Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.service
+          target: runtime-base
+          cache-from: type=gha,scope=ep3-runtime-java
+          cache-to: type=gha,scope=ep3-runtime-java,mode=min
       - name: Construir y publicar imágenes en ECR
+        env:
+          USE_VERIFIED_JARS: 'true'
+          EP3_BUILDX: 'true'
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"
           registry="$account.dkr.ecr.$AWS_REGION.amazonaws.com"
