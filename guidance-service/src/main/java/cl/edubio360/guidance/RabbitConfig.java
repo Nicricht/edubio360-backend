@@ -6,6 +6,8 @@ import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.context.annotation.Bean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.amqp.core.Declarables;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -16,6 +18,18 @@ public class RabbitConfig {
     public static final String DLX = "edubio.orientation.dlx";
     public static final String DLQ = "orientation.confirmed.notification.dlq";
     public static final String DLQ_ROUTING_KEY = "orientation.confirmed.dlq";
+
+    @Bean
+    @ConditionalOnProperty(name = "ep3.cloud.events", havingValue = "true")
+    Declarables cloudOrientationQueue() {
+        Queue dead = QueueBuilder.durable("ep3.cloud.confirmed.dlq").build();
+        Queue queue = QueueBuilder.durable("ep3.cloud.confirmed")
+                .deadLetterExchange("")
+                .deadLetterRoutingKey(dead.getName())
+                .build();
+        return new Declarables(dead, queue,
+                BindingBuilder.bind(queue).to(orientationExchange()).with(ROUTING_KEY));
+    }
 
     @Bean
     DirectExchange orientationExchange() {
