@@ -781,6 +781,34 @@
           "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Conservar diez imágenes recientes\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
         }
       }
+    },
+    "MetricsPrivate": {
+      "Type": "AWS::ElasticLoadBalancingV2::ListenerRule",
+      "Properties": {
+        "ListenerArn": {
+          "Ref": "Listener"
+        },
+        "Priority": 10,
+        "Conditions": [
+          {
+            "Field": "path-pattern",
+            "Values": [
+              "/actuator/prometheus",
+              "/actuator/gateway*"
+            ]
+          }
+        ],
+        "Actions": [
+          {
+            "Type": "fixed-response",
+            "FixedResponseConfig": {
+              "StatusCode": "403",
+              "ContentType": "text/plain",
+              "MessageBody": "Private monitoring endpoint"
+            }
+          }
+        ]
+      }
     }
   },
   "Outputs": {
