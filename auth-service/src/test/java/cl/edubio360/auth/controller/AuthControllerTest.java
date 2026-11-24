@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
@@ -39,6 +41,16 @@ class AuthControllerTest {
 
         mvc.perform(post("/api/auth/register").contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void consultaSesionActual() throws Exception {
+        when(service.sesionActual("user@example.test"))
+                .thenReturn(new UserResponse(1L, "user@example.test", "STUDENT", true));
+        mvc.perform(get("/api/auth/me").header("X-User-Email", "user@example.test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("STUDENT"));
+        mvc.perform(get("/api/auth/me")).andExpect(status().isBadRequest());
     }
 
     @Test

@@ -24,6 +24,11 @@ public class AuthController {
         return service.registrar(request.email(), request.password());
     }
 
+    @GetMapping("/me")
+    public UserResponse me(@RequestHeader("X-User-Email") String email) {
+        return service.sesionActual(email);
+    }
+
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return service.login(request.email(), request.password());
