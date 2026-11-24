@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${AWS_REGION:?}"
-: "${EP3_STACK:=edubio-ep3}"
+: "${EP3_STACK:=edubio-devops-ep3}"
+# Never update the stack submitted for Fullstack.
+test "$EP3_STACK" = edubio-devops-ep3 || { echo "Stack no autorizado para esta rama" >&2; exit 1; }
+test "${GITHUB_REF:-refs/heads/ep3-devops-cloud}" = refs/heads/ep3-devops-cloud || exit 1
 mkdir -p artifacts
 jq --rawfile code serverless/orientation_receipt.py '.Resources.ReceiptFunction.Properties.Code.ZipFile=$code' cloud/infra.json > /tmp/edubio-ep3-template.json
 aws cloudformation validate-template --template-body file:///tmp/edubio-ep3-template.json >/dev/null

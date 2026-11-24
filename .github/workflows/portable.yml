@@ -2,7 +2,7 @@ name: EduBio360 Portable
 on:
   workflow_dispatch:
   push:
-    branches: [nico]
+    branches: [ep3-devops-cloud]
     paths:
       - 'scripts/portable/**'
       - 'Dockerfile.service'
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: 5c8635058838139436471dc62bbd342950ca25e6
+          ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
           path: frontend-source
       - uses: actions/setup-java@v4
         with:

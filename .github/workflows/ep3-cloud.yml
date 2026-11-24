@@ -1,10 +1,15 @@
 name: EduBio360 EP3 JVY0101
 on:
   push:
-    branches: [main, nico, "feature/ep3-cloud", "feature/ep3-integral"]
+    branches: [ep3-devops-cloud]
   pull_request:
-    branches: [main]
+    branches: [ep3-devops-cloud]
   workflow_dispatch:
+    inputs:
+      deploy_isolated_aws:
+        description: "Autorizar aprovisionamiento AWS independiente (consume créditos)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -81,7 +86,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: 5c8635058838139436471dc62bbd342950ca25e6
+          ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
           path: frontend-source
       - name: Preparar Chromium reproducible
         timeout-minutes: 18
@@ -161,7 +166,7 @@ jobs:
           path: artifacts/
   cloud:
     needs: [verify, swarm]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.EP3_AWS_ENABLED == 'true' && (vars.EP3_AWS_AUTH_MODE != 'academy' || github.event_name == 'workflow_dispatch')
+    if: github.ref == 'refs/heads/ep3-devops-cloud' && github.event_name == 'workflow_dispatch' && inputs.deploy_isolated_aws == true && vars.EP3_AWS_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -173,7 +178,7 @@ jobs:
       EP3_AWS_AUTH_MODE: ${{ vars.EP3_AWS_AUTH_MODE }}
       EP3_EXPECTED_AWS_ACCOUNT: ${{ vars.EP3_AWS_ACCOUNT_ID }}
       IMAGE_TAG: ${{ github.sha }}
-      EP3_STACK: edubio-ep3
+      EP3_STACK: edubio-devops-ep3
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -236,22 +241,28 @@ jobs:
           profile="$(aws iam list-instance-profiles-for-role --role-name LabRole --query 'InstanceProfiles[?InstanceProfileName==`LabInstanceProfile`].InstanceProfileName | [0]' --output text)"
           test "$profile" = LabInstanceProfile
           printf 'EP3_ACADEMY=true\nEP3_LAB_ROLE_ARN=%s\nEP3_LAB_INSTANCE_PROFILE=%s\n' "$role" "$profile" >> "$GITHUB_ENV"
+      - name: Comprobar aislamiento y autorización antes de crear recursos
+        run: |
+          test "$GITHUB_REF" = refs/heads/ep3-devops-cloud
+          test "$EP3_STACK" = edubio-devops-ep3
+          test -n "$EP3_EXPECTED_AWS_ACCOUNT"
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EP3_EXPECTED_AWS_ACCOUNT"
       - name: Provisionar VPC, EC2, ECR, SQS, Lambda, DynamoDB y API Gateway
         run: bash scripts/ep3/provision.sh
       - uses: actions/checkout@v4
         with:
           repository: Nicricht/edubio360-frontend
-          ref: 5c8635058838139436471dc62bbd342950ca25e6
+          ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
           path: frontend-source
       - name: Construir y publicar imágenes en ECR
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"
           registry="$account.dkr.ecr.$AWS_REGION.amazonaws.com"
           aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
-          echo "IMAGE_PREFIX=$registry/edubio-ep3" >> "$GITHUB_ENV"
-          IMAGE_PREFIX="$registry/edubio-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
-          docker build -t "$registry/edubio-ep3/frontend:$IMAGE_TAG" frontend-source
-          docker push "$registry/edubio-ep3/frontend:$IMAGE_TAG"
+          echo "IMAGE_PREFIX=$registry/edubio-devops-ep3" >> "$GITHUB_ENV"
+          IMAGE_PREFIX="$registry/edubio-devops-ep3" PUSH_IMAGES=true bash scripts/ep3/build-images.sh
+          docker build -t "$registry/edubio-devops-ep3/frontend:$IMAGE_TAG" frontend-source
+          docker push "$registry/edubio-devops-ep3/frontend:$IMAGE_TAG"
       - name: Despliegue multi-nodo, escalamiento y prueba de extremo a extremo
         run: bash scripts/ep3/deploy-aws.sh
       - name: Prueba Fullstack en la URL HTTPS de AWS

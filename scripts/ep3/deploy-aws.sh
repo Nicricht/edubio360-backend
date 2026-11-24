@@ -3,6 +3,12 @@ set -euo pipefail
 : "${AWS_REGION:?}"
 : "${IMAGE_TAG:?}"
 : "${IMAGE_PREFIX:?}"
+: "${EP3_STACK:?}"
+test "$EP3_STACK" = edubio-devops-ep3
+test "${GITHUB_REF:-refs/heads/ep3-devops-cloud}" = refs/heads/ep3-devops-cloud
+case "$IMAGE_PREFIX" in */edubio-devops-ep3) ;; *) echo "ECR no autorizado" >&2; exit 1;; esac
+# Refresh outputs from the isolated stack rather than trusting stale artifacts.
+aws cloudformation describe-stacks --stack-name "$EP3_STACK" --query 'Stacks[0].Outputs' --output json > artifacts/cloud-outputs.json
 output(){ jq -er --arg k "$1" '.[] | select(.OutputKey==$k) | .OutputValue' artifacts/cloud-outputs.json; }
 manager="$(output Manager)"; worker="$(output Worker)"; ip="$(output ManagerIp)"
 queue="$(output QueueUrl)"; table="$(output ReceiptTable)"; api="$(output ApiUrl)"

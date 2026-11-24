@@ -519,11 +519,11 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "edubio-ep3-manager"
+            "Value": "edubio-devops-ep3-manager"
           },
           {
             "Key": "Project",
-            "Value": "EduBio360-EP3"
+            "Value": "EduBio360-DevOps-EP3"
           }
         ],
         "CreditSpecification": {
@@ -581,11 +581,11 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "edubio-ep3-worker"
+            "Value": "edubio-devops-ep3-worker"
           },
           {
             "Key": "Project",
-            "Value": "EduBio360-EP3"
+            "Value": "EduBio360-DevOps-EP3"
           }
         ],
         "CreditSpecification": {
@@ -659,7 +659,7 @@
     "Link": {
       "Type": "AWS::ApiGatewayV2::VpcLink",
       "Properties": {
-        "Name": "edubio-ep3",
+        "Name": "edubio-devops-ep3",
         "SubnetIds": [
           {
             "Ref": "Subnet0"
@@ -678,7 +678,7 @@
     "Api": {
       "Type": "AWS::ApiGatewayV2::Api",
       "Properties": {
-        "Name": "edubio-ep3",
+        "Name": "edubio-devops-ep3",
         "ProtocolType": "HTTP"
       }
     },
@@ -732,7 +732,7 @@
     "EcrDiscoveryServer": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/discovery-server",
+        "RepositoryName": "edubio-devops-ep3/discovery-server",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -745,7 +745,7 @@
     "EcrAuthService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/auth-service",
+        "RepositoryName": "edubio-devops-ep3/auth-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -758,7 +758,7 @@
     "EcrAcademicService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/academic-service",
+        "RepositoryName": "edubio-devops-ep3/academic-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -771,7 +771,7 @@
     "EcrGuidanceService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/guidance-service",
+        "RepositoryName": "edubio-devops-ep3/guidance-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -784,7 +784,7 @@
     "EcrNotificationService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/notification-service",
+        "RepositoryName": "edubio-devops-ep3/notification-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -797,7 +797,7 @@
     "EcrAnalyticsService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/analytics-service",
+        "RepositoryName": "edubio-devops-ep3/analytics-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -810,7 +810,7 @@
     "EcrImportService": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/import-service",
+        "RepositoryName": "edubio-devops-ep3/import-service",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -823,7 +823,7 @@
     "EcrApiGateway": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/api-gateway",
+        "RepositoryName": "edubio-devops-ep3/api-gateway",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -836,7 +836,7 @@
     "EcrCloudEventBridge": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/cloud-event-bridge",
+        "RepositoryName": "edubio-devops-ep3/cloud-event-bridge",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
@@ -877,7 +877,7 @@
     "EcrFrontend": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
-        "RepositoryName": "edubio-ep3/frontend",
+        "RepositoryName": "edubio-devops-ep3/frontend",
         "ImageScanningConfiguration": {
           "ScanOnPush": true
         },
