@@ -8,7 +8,7 @@ manager="$(output Manager)"; worker="$(output Worker)"; ip="$(output ManagerIp)"
 queue="$(output QueueUrl)"; table="$(output ReceiptTable)"; api="$(output ApiUrl)"
 remote() {
   local node="$1" command="$2" id status
-  id="$(aws ssm send-command --instance-ids "$node" --document-name AWS-RunShellScript --parameters "$(jq -nc --arg c "$command" '{commands:[$c],executionTimeout:["3600"]}')" --query Command.CommandId --output text)"
+  id="$(aws ssm send-command --instance-ids "$node" --document-name AWS-RunShellScript --parameters "$(jq -nc --arg c "set -euo pipefail; $command" '{commands:[$c],executionTimeout:["3600"]}')" --query Command.CommandId --output text)"
   for i in $(seq 1 360); do
     status="$(aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query Status --output text 2>/dev/null || true)"
     case "$status" in
