@@ -27,7 +27,7 @@ jobs:
           repository: Nicricht/edubio360-frontend
           ref: 1cb471aaa416a3cf346a40c536506fdbf7dc605a
           path: frontend-source
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
