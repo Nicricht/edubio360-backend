@@ -1,51 +1,108 @@
-# Evidencias de observabilidad — EP3 Ingeniería DevOps
+# Observabilidad y entornos reales — EP3 DOY0101
 
-## Alcance y estado
-Rama: ep3-devops-cloud. Fullstack permanece congelado en nico. Este archivo registra evidencia factual de pruebas; el equipo debe validar los resultados y redactar sus propios análisis y reflexiones.
+## 1. Alcance y versión comprobada
 
-## Ejecución de referencia aprobada
-[GitHub Actions 45360418593](https://github.com/Nicricht/edubio360-backend/actions/runs/45360418593) — versión anterior, entorno Swarm en runner, no nueva infraestructura AWS.
+Proyecto EduBío 360. Rama exclusiva `ep3-devops-cloud`; la entrega Fullstack `nico` y su pila AWS anterior no se modificaron. Pila académica: `edubio-devops-ep3`, us-east-1. Evidencia del 24 de noviembre de 2026 (Chile; 25 de noviembre UTC).
 
-Extractos textuales verificados del log del job swarm (138329584119, 24-11-2026 UTC):
-```text
-09:02:08 Prometheus: los ocho servicios Java responden
-09:02:42 Loki: registros de los ocho servicios presentes
-09:02:48 Tempo: traza compartida Gateway y Academic
-09:02:49 cAdvisor: CPU y memoria de contenedores presentes
-09:02:55 Métricas CI/CD verificadas en Prometheus
+- [CI Java Cloud y Swarm aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823), commit `1ace7cc248f6d45805365d49001a41680bd52b2f`.
+- [DevSecOps aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790), mismo commit.
+- [Recuperación AWS, intento 2 aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2): imágenes verificadas del commit `c2296701b485be2c557472a7f211c92f34581c13`, configuración de recuperación `1ace7cc2`, frontend `1cb471aaa416a3cf346a40c536506fdbf7dc605a`.
+- [Artefacto AWS final](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576) y [artefacto CI con capturas Grafana](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823/artifacts/14978529212).
+- [Evidencia de carga y flujo funcional anterior](https://github.com/Nicricht/edubio360-backend/actions/runs/45508192123) (terminó con fallo en Tempo, resuelto en la recuperación final; no se presenta como éxito global).
+
+## 2. Arquitectura e integración
+
+```mermaid
+flowchart TD
+  G[GitHub Actions: Maven y JaCoCo] --> S[Snyk y control de calidad]
+  S --> B[Imágenes verificadas por SHA]
+  B --> W[Swarm de prueba]
+  W --> A[CloudFormation, ECR y EC2]
+  A --> M[Swarm Manager y Worker]
+  M --> P[Prometheus y cAdvisor]
+  M --> L[Alloy y Loki]
+  M --> T[Tempo]
+  G --> U[Pushgateway: cobertura y duración]
+  U --> P
+  P --> D[Grafana]
+  L --> D
+  T --> D
 ```
 
-| Prueba | Evidencia |
+Configuración reproducible: [docker-stack.monitoring.yml](docker-stack.monitoring.yml), [cloud/docker-stack.cloud.yml](cloud/docker-stack.cloud.yml), [observability/](observability/), [workflow Java Cloud](.github/workflows/ep3-cloud.yml), [workflow DevSecOps](.github/workflows/ci.yml), [monitoring-smoke.sh](scripts/ep3/monitoring-smoke.sh), [publish-ci-metrics.sh](scripts/ep3/publish-ci-metrics.sh), [grafana-browser.py](scripts/ep3/grafana-browser.py), [observability-report.py](scripts/ep3/observability-report.py) y [recuperación focalizada](.github/workflows/aws-resume-monitoring.yml). Las sondas, logs, trazas y métricas se comprueban con consultas reales; si no se cumple una condición, el job falla.
+
+## 3. IE1 — logs, uso, errores y disponibilidad (20%)
+
+Datos extraídos de `aws-observability-summary.json` del [artefacto final AWS](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576), ventana de logs de 2 horas. `up=1` corresponde a una muestra disponible, no a un SLA. Los contadores HTTP son las muestras observadas en Prometheus, no totales históricos ni necesariamente el número exacto de solicitudes de carga, pues hubo reinicios y cambios de réplicas.
+
+| Servicio | up | Logs 2h | Contador HTTP | HTTP 5xx |
+|---|---:|---:|---:|---:|
+| Academic | 1 | 8942 | 61 | 1 |
+| Analytics | 1 | 4546 | 61 | 0 |
+| API Gateway | 1 | 19551 | 202 | 0 |
+| Auth | 1 | 8456 | 61 | 0 |
+| Discovery | 1 | 11463 | 991 | 0 |
+| Guidance | 1 | 3542 | 59 | 0 |
+| Import | 1 | 3667 | 60 | 0 |
+| Notification | 1 | 3902 | 59 | 0 |
+
+El error HTTP 5xx de Academic permanece registrado; no se confunde con las 384 solicitudes de carga sin errores. El job final comprobó una traza compartida real de Gateway y Academic, logs de los ocho servicios y contadores HTTP de los ocho.
+
+## 4. IE2 — orquestación y observabilidad cloud (20%)
+
+Dos EC2 t3.large en el clúster Swarm, Manager Leader y Worker Ready/Active. Gateway, frontend, Alloy y cAdvisor distribuidos; MySQL y Eureka fijados al Manager. El despliegue no representa alta disponibilidad de base de datos ni del plano de control. La pila real se aprovisionó mediante CloudFormation en el [run original](https://github.com/Nicricht/edubio360-backend/actions/runs/45498949435), y se recuperó sin crear nuevas máquinas. El [run final](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2) reconfirmó la salud y trazabilidad, constancia de DynamoDB y navegación pública por HTTPS. No se confunde la prueba de un nodo en GitHub con los dos nodos reales de AWS.
+
+### Escalamiento en AWS (evidencia del run 45508192123)
+
+| Servicio | Réplicas | Concurrencia | Solicitudes | Errores | p95 (s) | req/s |
+|---|---:|---:|---:|---:|---:|---:|
+| Analytics | 1 | 1 | 48 | 0 | 0.117363 | 11.04 |
+| Analytics | 1 | 8 | 48 | 0 | 0.272769 | 28.87 |
+| Analytics | 2 | 1 | 48 | 0 | 0.074029 | 14.68 |
+| Analytics | 2 | 8 | 48 | 0 | 0.291741 | 30.59 |
+| Academic | 1 | 1 | 48 | 0 | 0.136682 | 9.12 |
+| Academic | 1 | 8 | 48 | 0 | 0.258159 | 31.55 |
+| Academic | 2 | 1 | 48 | 0 | 0.126460 | 9.37 |
+| Academic | 2 | 8 | 48 | 0 | 0.486172 | 20.90 |
+
+Total 384 solicitudes, cero errores durante estos escenarios. Se verificó la distribución en dos nodos, el registro Eureka y la reducción a una réplica. No se afirma que dos réplicas siempre mejoren el rendimiento: Academic presentó mayor p95 con concurrencia 8 en esta muestra. Es escalamiento controlado por script, no autoescalamiento por umbral.
+
+## 5. IE3 — dashboards integrados al pipeline (10%)
+
+Dashboard provisionado: [observability/edubio.json](observability/edubio.json). El [artefacto CI](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823/artifacts/14978529212) incluye capturas reales de los siete paneles: disponibilidad, peticiones, errores, cobertura, despliegue, CPU y RAM (archivos `grafana-*.png`). Son capturas del entorno CI, no capturas del navegador de Grafana en AWS. En AWS se verificaron las consultas y API de monitoreo.
+
+| Métrica publicada | Resultado comprobado |
 |---|---|
-| Disponibilidad | prometheus-health.json, ocho servicios Java |
-| Logs | loki-counts.json, registros de ocho servicios |
-| Trazabilidad | tempo-trace.json, Gateway y Academic |
-| Recursos | container-cpu.json, container-memory.json |
-| Cobertura | prometheus-coverage.json y ci-metrics.prom |
-| Duración del despliegue | prometheus-deploy-duration.json |
-| Dashboard | observability/edubio.json, configuración Grafana |
+| Duración | 951 segundos (15 min 51 s), etapa AWS anterior, incluye arranque y validaciones; no es duración de arranque puro |
+| Cobertura | Gauge JaCoCo publicado: 1.0 para siete módulos instrumentados; verificar alcance con [reportes de pruebas](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823/artifacts/14979252354); no atribuir 100% a todo el sistema |
+| CPU | 24 series observadas de contenedores |
+| Memoria | 24 series observadas de contenedores |
+| Errores | Contadores de los ocho servicios, incluida la muestra 5xx de Academic |
 
-[Artefacto ep3-swarm de referencia](https://github.com/Nicricht/edubio360-backend/actions/runs/45360418593/artifacts/14904487475).
-[Métricas CI/CD de referencia](https://github.com/Nicricht/edubio360-backend/actions/runs/45360418593/artifacts/14904366879).
+Las series CPU/memoria son cantidades de series de métricas, no porcentajes de utilización. `deployment-duration-source.txt`, `ci-metrics.prom`, `aws-observability-summary.json` y `cloud-resume.txt` respaldan los resultados. La configuración de Grafana consulta valores de utilización desde Prometheus.
 
-## Seguridad y calidad
-En la rama nueva, commit 76a13756651665a1cd10a4743a381f6ff46b444b, [DevSecOps 45483011248](https://github.com/Nicricht/edubio360-backend/actions/runs/45483011248) aprobó Maven, Snyk Open Source (9 proyectos sin rutas vulnerables reportadas al umbral alto), Snyk Code, imagen no-root y despliegue simulado. [Reporte Snyk](https://github.com/Nicricht/edubio360-backend/actions/runs/45483011248/artifacts/14962596169). [Bloqueo histórico por vulnerabilidades](https://github.com/Nicricht/edubio360-backend/actions/runs/45322418192).
+## 6. IE4 — documentación e información para decisiones (10%)
 
-## Validación de la nueva rama
-[Run 45483011255](https://github.com/Nicricht/edubio360-backend/actions/runs/45483011255): Maven y 14 pruebas Python aprobaron, pero bash -n detectó un error de sintaxis en swarm-smoke.sh. Se corrige en el mismo cambio que incorpora este documento. No se ejecutó Swarm ni AWS en ese run. Las nuevas pruebas de contadores HTTP y capturas Grafana se encuentran implementadas y requieren ejecución satisfactoria. Consultar [ejecuciones de la rama](https://github.com/Nicricht/edubio360-backend/actions?query=branch%3Aep3-devops-cloud).
+Los archivos y etapas quedan identificados en las secciones 2–5. Para investigar incidencias, el equipo puede correlacionar salud y errores HTTP, consultar logs por servicio en Loki, buscar una traza en Tempo, comparar consumo de CPU/RAM y revisar el tiempo de cada job. Caso factual: el diagnóstico del Worker registró carga elevada y fallos de arranque; se aplicó arranque por etapas. Una recuperación posterior falló en Tempo; se recuperó solo ese servicio, con un límite de memoria de 768 MiB, sin reiniciar los servicios de negocio. [Registro técnico de recuperación](docs/EP3_AWS_RECUPERACION.md).
 
-## AWS
-[Registro histórico AWS](docs/EP3_AWS_VALIDACION_REAL.md): corresponde a la pila anterior edubio-ep3; no acredita la nueva edubio-devops-ep3. La pila nueva requiere aprovisionamiento autorizado y validación real. No se presentan capturas simuladas como pruebas.
+**Pendiente del equipo:** escribir aquí, con sus propias palabras y sin IA, el análisis de los resultados y la justificación técnica de las decisiones (la pauta lo exige).
 
-## Integración y revisión
-Configuración: docker-stack.monitoring.yml, observability/, scripts/ep3/monitoring-smoke.sh, scripts/ep3/publish-ci-metrics.sh, scripts/ep3/grafana-browser.py y .github/workflows/ep3-cloud.yml. Los artefactos se generan en CI; incorporar resultados de la última ejecución exitosa y capturas reales al cierre. El análisis técnico, las decisiones y las reflexiones individuales deben ser redactados por los estudiantes. Declarar y citar el uso real de IA según la pauta: https://bibliotecas.duoc.cl/ia.
+## 7. IE5 — políticas de cumplimiento (20%)
 
-## Validación de la nueva rama (981b5517)
+[DevSecOps aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790): Maven/JaCoCo, Snyk Open Source y Snyk Code, construcción de imagen no-root y smoke test. [Artefacto Snyk](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790/artifacts/14978558687). El pipeline Java Cloud también exige auditoría npm antes del despliegue real. El umbral Snyk alto/crítico y el bloqueo de calidad se conservan; no se declara certificación de una norma externa que no fue auditada. Los secretos no se guardan en Git, y el stack cloud y la rama están restringidos. AWS Academy usa una sesión temporal.
 
-[Run 45485036677](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036677): verificación, Swarm, escalamiento, flujo de negocio y observabilidad aprobaron. Prometheus confirmó contadores HTTP y errores; las métricas CI/CD se verificaron. La etapa de captura gráfica falló al buscar el campo de usuario de Grafana, por lo que Swagger y Chromium posteriores se omitieron. [Artefacto con evidencia de esa ejecución parcial](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036677/artifacts/14962549960). [DevSecOps del mismo commit aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45485036599).
+## 8. IE6 — bloqueo automático (20%)
 
-Corrección: acceso a Grafana por la red overlay privada, autenticación de sesión mediante API, comprobación de usuario y dashboard y capturas reales de siete paneles. Pendiente de nueva ejecución exitosa. No representa certificación AWS.
+[Ejemplo histórico de fallo de seguridad](https://github.com/Nicricht/edubio360-backend/actions/runs/45322418192): revisar el job Snyk y las etapas dependientes omitidas. El [workflow DevSecOps](.github/workflows/ci.yml) conecta las etapas mediante `needs`; la auditoría previa a la publicación y aprovisionamiento está también en [ep3-cloud.yml](.github/workflows/ep3-cloud.yml). El fallo de Tempo de la recuperación anterior también impidió la certificación y la prueba de navegador; el aprobado posterior no elimina ese registro. Un job omitido no es una prueba aprobada.
 
-## Evidencia CI del 24/11/2026 (commit `6e11900d`)
+## 9. Cierre y responsabilidad académica
 
-[Run Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45493740583), [artefacto real ep3-swarm](https://github.com/Nicricht/edubio360-backend/actions/runs/45493740583/artifacts/14968078780): los ocho servicios estuvieron disponibles; existen contadores HTTP y logs de los ocho, traza Gateway/Academic, 24 series CPU y 24 de RAM, 274 s de despliegue medido y 384 solicitudes de carga con cero fallos. El informe registra un HTTP 5xx de Academic durante la ventana de observación; no se confunde con los resultados de las pruebas de carga. La API autenticada de Grafana retornó el dashboard con 11 paneles; Chromium mostró error de carga de interfaz y no se certifican las capturas. Se incorpora preflight aislado del navegador con locale explícito antes de levantar Swarm, sin sustituir la evidencia real. [DevSecOps aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45493740170). [Comprobación AWS de solo lectura aprobada](https://github.com/Nicricht/edubio360-backend/actions/runs/45493740382); no equivale a despliegue.
+El sistema se comprobó mediante despliegue y recuperación en AWS en ejecuciones enlazadas; no se afirma que el job cloud original haya terminado verde en una sola ejecución. URL académica temporal: https://swakubk30d.execute-api.us-east-1.amazonaws.com. Depende de que AWS Academy esté activo.
+
+Declaración factual de asistencia: ChatGPT se utilizó para revisar requisitos, asistir en la implementación de código, automatización, diagnóstico, documentación y organización de evidencias. El equipo debe verificar, declarar el alcance real y citar el uso según https://bibliotecas.duoc.cl/ia. La pauta DOY0101 permite apoyo de IA en redacción, referencias y diagramas, pero exige ideas, análisis, justificaciones y reflexiones propias; el equipo debe revisar el cumplimiento con el docente, incluido el alcance de la asistencia técnica.
+
+### Conclusiones y reflexiones individuales (obligatorias, sin IA)
+- Integrante 1: completar personalmente su aprendizaje y contribución.
+- Integrante 2: completar personalmente su aprendizaje y contribución.
+
+No se redactan estas reflexiones ni las justificaciones personales por IA.

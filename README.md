@@ -3,6 +3,8 @@
 ## Entrega EP3: Ingeniería DevOps y Java Cloud
 Rama de trabajo: `ep3-devops-cloud`. Fullstack `nico` permanece congelada.
 [Evidencias de observabilidad](observabilidad.md) · [Índice de entrega por indicador y evidencias](docs/EP3_DEVOPS_JAVA_ENTREGA.md) · [Aislamiento AWS](docs/EP3_DEVOPS_CLOUD_AISLAMIENTO.md).
+**Estado final técnico EP3 (24/11/2026 Chile):** [AWS verificado por recuperación](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2), [CI Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823), [DevSecOps](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790), [evidencia AWS](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576). URL temporal: https://swakubk30d.execute-api.us-east-1.amazonaws.com. [Guía de grabación de Java Cloud](docs/GUIA_VIDEO_EP3_JVY0101.md). Falta el video del equipo y sus conclusiones/reflexiones propias. La certificación fue por etapas; el job cloud original no terminó verde.
+
 Los registros EP2 siguientes son históricos, no describen el estado actual de EP3.
 
 ## EP3 JVY0101 — Integración y despliegue de soluciones cloud
