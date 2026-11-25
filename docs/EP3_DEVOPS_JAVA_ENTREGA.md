@@ -50,6 +50,6 @@ Esta rama es exclusiva de DevOps y Java Cloud. Fullstack permanece en nico sin c
 | IE17 | 2% | Voz real de ambos estudiantes y audio claro. |
 
 ## Cierre y entrega
-DOY0101: GitHub en AVA y correo; informe, declaración de IA y reflexiones individuales redactadas sin IA. JVY0101: enlaces de los repositorios en AVA y correo y video de 3–8 minutos en ambos medios. La validación AWS por etapas está respaldada por los runs y artefactos enlazados; el enlace de video DevOps se registra arriba; no se ha confirmado el video específico de Java Cloud. Las justificaciones y reflexiones propias se entregan por separado. Un job skipped no es una prueba aprobada. La nueva pila edubio-devops-ep3 requiere autorización de créditos y sesión AWS vigente. No sobrescribir edubio-ep3.
+DOY0101: GitHub en AVA y correo; informe, declaración de IA y reflexiones individuales redactadas sin IA. JVY0101: enlaces de los repositorios en AVA y correo y video de 3–8 minutos en ambos medios. La validación AWS por etapas está respaldada por los runs y artefactos enlazados; el enlace de video DevOps se registra arriba; no se ha confirmado el video específico de Java Cloud. La [reflexión final EP3 de Ingeniería DevOps](../README.md#reflexión-final) está al final del README; las demás justificaciones y reflexiones se gestionan por separado. Un job skipped no es una prueba aprobada. La nueva pila edubio-devops-ep3 requiere autorización de créditos y sesión AWS vigente. No sobrescribir edubio-ep3.
 
 Referencia de citación de IA indicada en la pauta: https://bibliotecas.duoc.cl/ia.
