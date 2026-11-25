@@ -6,7 +6,12 @@ Esta rama es exclusiva de DevOps y Java Cloud. Fullstack permanece en nico sin c
 
 [Recuperación AWS exitosa, intento 2](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2) · [Artefacto AWS final](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576) · [CI Swarm aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823) · [DevSecOps aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790). [Observabilidad final](../observabilidad.md) · [Guía de video JVY0101](GUIA_VIDEO_EP3_JVY0101.md). El despliegue original falló y se completó por recuperación focalizada; no afirmar que el job cloud original terminó exitoso.
 
+## Video de entrega Ingeniería DevOps (DOY0101)
+
+[Ver video del equipo en YouTube](https://youtu.be/0410_jcBs0s). Este enlace corresponde a DevOps; no se presenta como video específico de Java Cloud.
+
 ## Evidencias y versiones
+- Última validación del código (25/11/2026 UTC): [DevSecOps](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109309) y [Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109271), ambos aprobados en `ae06f177609c24e3d002bd7c4b50b6bdf982b4aa`.
 - Frontend fijado: 1cb471aaa416a3cf346a40c536506fdbf7dc605a.
 - Frontend CI: https://github.com/Nicricht/edubio360-frontend/actions/runs/45482382946
 - Auditoría npm: https://github.com/Nicricht/edubio360-frontend/actions/runs/45482382994
@@ -45,6 +50,6 @@ Esta rama es exclusiva de DevOps y Java Cloud. Fullstack permanece en nico sin c
 | IE17 | 2% | Voz real de ambos estudiantes y audio claro. |
 
 ## Cierre y entrega
-DOY0101: GitHub en AVA y correo; informe, declaración de IA y reflexiones individuales redactadas sin IA. JVY0101: enlaces de los repositorios en AVA y correo y video de 3–8 minutos en ambos medios. La validación AWS por etapas está respaldada por los runs y artefactos enlazados; falta grabar el video y completar las justificaciones y reflexiones propias. Un job skipped no es una prueba aprobada. La nueva pila edubio-devops-ep3 requiere autorización de créditos y sesión AWS vigente. No sobrescribir edubio-ep3.
+DOY0101: GitHub en AVA y correo; informe, declaración de IA y reflexiones individuales redactadas sin IA. JVY0101: enlaces de los repositorios en AVA y correo y video de 3–8 minutos en ambos medios. La validación AWS por etapas está respaldada por los runs y artefactos enlazados; el enlace de video DevOps se registra arriba; no se ha confirmado el video específico de Java Cloud. Las justificaciones y reflexiones propias se entregan por separado. Un job skipped no es una prueba aprobada. La nueva pila edubio-devops-ep3 requiere autorización de créditos y sesión AWS vigente. No sobrescribir edubio-ep3.
 
 Referencia de citación de IA indicada en la pauta: https://bibliotecas.duoc.cl/ia.
