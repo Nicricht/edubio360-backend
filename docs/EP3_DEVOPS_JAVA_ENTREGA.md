@@ -8,7 +8,7 @@ Esta rama es exclusiva de DevOps y Java Cloud. Fullstack permanece en nico sin c
 
 ## Video de entrega Ingeniería DevOps (DOY0101)
 
-[Ver video del equipo en YouTube](https://youtu.be/0410_jcBs0s). Este enlace corresponde a DevOps; no se presenta como video específico de Java Cloud.
+[Ver video del equipo en YouTube](https://youtu.be/NqyT2dnG7Wc). Este enlace corresponde a DevOps; no se presenta como video específico de Java Cloud.
 
 ## Evidencias y versiones
 - Última validación del código (25/11/2026 UTC): [DevSecOps](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109309) y [Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109271), ambos aprobados en `ae06f177609c24e3d002bd7c4b50b6bdf982b4aa`.

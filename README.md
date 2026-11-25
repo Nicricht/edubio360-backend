@@ -3,7 +3,7 @@
 ## Entrega EP3: Ingeniería DevOps y Java Cloud
 Rama de trabajo: `ep3-devops-cloud`. Fullstack `nico` permanece congelada.
 [Evidencias de observabilidad](observabilidad.md) · [Índice de entrega por indicador y evidencias](docs/EP3_DEVOPS_JAVA_ENTREGA.md) · [Aislamiento AWS](docs/EP3_DEVOPS_CLOUD_AISLAMIENTO.md).
-**Estado final técnico EP3 (24/11/2026 Chile):** [AWS verificado por recuperación](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2), [CI Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823), [DevSecOps](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790), [evidencia AWS](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576). URL temporal: https://swakubk30d.execute-api.us-east-1.amazonaws.com. [Guía de grabación de Java Cloud](docs/GUIA_VIDEO_EP3_JVY0101.md). [Video de entrega Ingeniería DevOps (DOY0101)](https://youtu.be/0410_jcBs0s). El video específico de Java Cloud no está confirmado en este índice. [Reflexión final EP3 de Ingeniería DevOps](#reflexión-final) al final de este README. La certificación fue por etapas; el job cloud original no terminó verde.
+**Estado final técnico EP3 (24/11/2026 Chile):** [AWS verificado por recuperación](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/attempts/2), [CI Java Cloud](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491823), [DevSecOps](https://github.com/Nicricht/edubio360-backend/actions/runs/45518491790), [evidencia AWS](https://github.com/Nicricht/edubio360-backend/actions/runs/45518492502/artifacts/14982145576). URL temporal: https://swakubk30d.execute-api.us-east-1.amazonaws.com. [Guía de grabación de Java Cloud](docs/GUIA_VIDEO_EP3_JVY0101.md). [Video de entrega Ingeniería DevOps (DOY0101)](https://youtu.be/NqyT2dnG7Wc). El video específico de Java Cloud no está confirmado en este índice. [Reflexión final EP3 de Ingeniería DevOps](#reflexión-final) al final de este README. La certificación fue por etapas; el job cloud original no terminó verde.
 
 **Última validación del código (25/11/2026 UTC):** [DevSecOps aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109309) · [CI Java Cloud aprobado](https://github.com/Nicricht/edubio360-backend/actions/runs/45525109271), ambos sobre el commit `ae06f177609c24e3d002bd7c4b50b6bdf982b4aa`.
 
@@ -565,4 +565,4 @@ Para futuros proyectos me gustaría seguir utilizando estas herramientas, ya que
 
 ### Video de demostración del proyecto — Ingeniería DevOps
 
-[https://youtu.be/0410_jcBs0s](https://youtu.be/0410_jcBs0s)
+[https://youtu.be/NqyT2dnG7Wc](https://youtu.be/NqyT2dnG7Wc)
