@@ -2,6 +2,9 @@
 set -euo pipefail
 image="${IMAGE_PREFIX:-edubio360}/api-gateway:${IMAGE_TAG:-local}"
 mkdir -p artifacts
+log_window="${MONITOR_LOG_WINDOW:-30m}"
+case "$log_window" in 30m|2h) ;; *) exit 2;; esac
+printf "%s\n" "$log_window" > artifacts/loki-window.txt
 network="${MONITOR_NETWORK:-edubio_backend}"
 resource_selector='container_label_com_docker_swarm_service_name=~"edubio_.+"'
 if [ "${MONITOR_COMPOSE:-false}" = true ]; then resource_selector='container_label_com_docker_compose_project="edubio360-portable"'; fi
@@ -27,11 +30,11 @@ retry netcurl http://grafana:3000/api/health
 retry netcurl http://loki:3100/ready
 retry netcurl http://tempo:3200/ready
 check_logs() {
-  netcurl --get --data-urlencode 'query=sum by (service) (count_over_time({job="edubio-docker",service=~"discovery-server|auth-service|academic-service|guidance-service|notification-service|analytics-service|import-service|api-gateway"}[30m]))' http://loki:3100/loki/api/v1/query > artifacts/loki-counts.json &&
+  netcurl --get --data-urlencode 'query=sum by (service) (count_over_time({job="edubio-docker",service=~"discovery-server|auth-service|academic-service|guidance-service|notification-service|analytics-service|import-service|api-gateway"}['"$log_window"']))' http://loki:3100/loki/api/v1/query > artifacts/loki-counts.json &&
     jq -e '[.data.result[].metric.service] | unique | length == 8' artifacts/loki-counts.json >/dev/null
 }
 retry check_logs
-echo 'Loki: registros de los ocho servicios presentes'
+echo "Loki: registros de los ocho servicios presentes (ventana $log_window)"
 trace="$(openssl rand -hex 16)"
 parent="$(openssl rand -hex 8)"
 curl -fsS -H "traceparent: 00-$trace-$parent-01" "${BASE_URL:-http://127.0.0.1:8080}/api/ofertas" >/dev/null

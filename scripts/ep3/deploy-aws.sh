@@ -13,10 +13,14 @@ output(){ jq -er --arg k "$1" '.[] | select(.OutputKey==$k) | .OutputValue' arti
 manager="$(output Manager)"; worker="$(output Worker)"; ip="$(output ManagerIp)"
 queue="$(output QueueUrl)"; table="$(output ReceiptTable)"; api="$(output ApiUrl)"
 remote() {
-  local node="$1" command="$2" id status
+  local node="$1" command="$2" stage="${3:-SSM}" id status previous=""
   id="$(aws ssm send-command --instance-ids "$node" --document-name AWS-RunShellScript --parameters "$(jq -nc --arg c "set -euo pipefail; $command" '{commands:[$c],executionTimeout:["3600"]}')" --query Command.CommandId --output text)"
   for i in $(seq 1 360); do
     status="$(aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query Status --output text 2>/dev/null || true)"
+    if [ "$status" != "$previous" ] || (( i % 3 == 0 )); then
+      printf "[%s] %s: %s (%ss)\n" "$(date -u +%T)" "$stage" "${status:-pending}" "$((i*10))" >&2
+      previous="$status"
+    fi
     case "$status" in
       Success) aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardOutputContent --output text; return;;
       Failed|Cancelled|TimedOut|Cancelling) aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardOutputContent --output text; aws ssm get-command-invocation --command-id "$id" --instance-id "$node" --query StandardErrorContent --output text >&2; return 1;;
@@ -52,12 +56,17 @@ export IMAGE_PREFIX='$IMAGE_PREFIX' IMAGE_TAG='$IMAGE_TAG' AWS_REGION='$AWS_REGI
 aws ecr get-login-password --region '$AWS_REGION' | docker login --username AWS --password-stdin '${IMAGE_PREFIX%%/*}'
 docker pull '$IMAGE_PREFIX/api-gateway:$IMAGE_TAG'
 docker node ls
-started=\$(date +%s)
-bash scripts/ep3/swarm-deploy.sh
-bash scripts/ep3/swarm-smoke.sh
-bash scripts/ep3/flow.sh
-bash scripts/ep3/monitoring-smoke.sh
-DEPLOY_DURATION_SECONDS=\$((\$(date +%s)-started)) bash scripts/ep3/publish-ci-metrics.sh" | tee artifacts/cloud-deploy.txt
+mkdir -p artifacts; date +%s > artifacts/deploy-started.txt" "Preparación del nodo" | tee artifacts/cloud-deploy.txt
+run_stage() {
+  local label="$1" command="$2"
+  echo "=== $label ==="
+  remote "$manager" "cd /opt/edubio; set -a; . ./.secrets; set +a; export EP3_MONITORING=true EP3_FRONTEND=true IMAGE_PREFIX='$IMAGE_PREFIX' IMAGE_TAG='$IMAGE_TAG' AWS_REGION='$AWS_REGION' SQS_QUEUE_URL='$queue' RECEIPT_TABLE='$table' BASE_URL='$api' EP3_CLOUD=true; $command" "$label" | tee -a artifacts/cloud-deploy.txt
+}
+run_stage "Arranque de Swarm" "bash scripts/ep3/swarm-deploy.sh"
+run_stage "Salud y escalamiento" "bash scripts/ep3/swarm-smoke.sh"
+run_stage "Flujo funcional y serverless" "bash scripts/ep3/flow.sh"
+run_stage "Observabilidad" "bash scripts/ep3/monitoring-smoke.sh"
+run_stage "Publicación de métricas" "DEPLOY_DURATION_SECONDS=\$((\$(date +%s)-\$(cat artifacts/deploy-started.txt))) bash scripts/ep3/publish-ci-metrics.sh"
 # Read only the compact, explicitly scoped result of the completed run.
 remote "$manager" "cd /opt/edubio; EP3_CLOUD=true IMAGE_TAG='$IMAGE_TAG' python3 scripts/ep3/observability-report.py" > artifacts/aws-observability-summary.json
 jq -e --arg sha "$IMAGE_TAG" '.environment=="aws" and .commit==$sha and (.services|length)==8 and .serverless_receipt.estado=="CONSTANCIA_GENERADA"' artifacts/aws-observability-summary.json >/dev/null

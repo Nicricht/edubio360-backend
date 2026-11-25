@@ -26,6 +26,10 @@ def series(name, label=None):
 def report():
     health = series("prometheus-health.json", "job")
     logs = series("loki-counts.json", "service")
+    window_file = ART / "loki-window.txt"
+    log_window = window_file.read_text().strip() if window_file.exists() else "30m"
+    if log_window not in {"30m", "2h"}:
+        raise ValueError("invalid log window")
     usage = series("prometheus-http-usage.json", "job")
     errors = series("prometheus-http-errors.json", "job")
     coverage = series("prometheus-coverage.json", "module")
@@ -36,8 +40,10 @@ def report():
     result = {
         "environment": "aws" if os.getenv("EP3_CLOUD") == "true" else "ci-swarm",
         "commit": os.environ.get("IMAGE_TAG", "unknown"),
+        "log_window": log_window,
         "services": {name: {
-            "up": health[name], "log_count_30m": logs[name],
+            "up": health[name], "log_count": logs[name],
+            **({"log_count_30m": logs[name]} if log_window == "30m" else {}),
             "http_requests_total": usage[name], "http_5xx_total": errors[name],
         } for name in sorted(SERVICES)},
         "coverage_line_ratio": coverage,
